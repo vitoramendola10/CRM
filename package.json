@@ -1,0 +1,36 @@
+{
+  "name": "crm-suporte-dev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.0.2",
+    "drizzle-orm": "0.45.2",
+    "mysql2": "3.23.2",
+    "next": "15.5.22",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.1.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "dotenv": "17.2.3",
+    "drizzle-kit": "0.31.10",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.4",
+    "typescript": "5.9.3"
+  }
+}

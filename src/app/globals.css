@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/**
+ * Identidade visual do CRM. Base de papel quente, tinta escura quente,
+ * cor so onde significa alguma coisa. Tema unico e claro - sem dark mode.
+ */
+
+@theme {
+  --font-sans: var(--fonte-texto), ui-sans-serif, sans-serif;
+  --font-mono: var(--fonte-numero), ui-monospace, monospace;
+
+  /* Papel: nunca branco puro, nunca cinza azulado. */
+  --color-papel: #f3ece0;
+  --color-papel-alto: #fbf8f2;
+  --color-papel-baixo: #e9e0d0;
+
+  /* Tinta quente. */
+  --color-tinta: #211d17;
+  --color-tinta-media: #5b5245;
+  --color-tinta-fraca: #8b8173;
+
+  --color-linha: #ded4c2;
+  --color-linha-forte: #c9bda7;
+
+  /* Unico acento da interface: foco, link, selecao. */
+  --color-acento: #8a5426;
+
+  /* Semanticas. Espelham COR_PRIORIDADE / COR_CATEGORIA de src/domain. */
+  --color-prio-baixa: #8a9a8e;
+  --color-prio-media: #c99a3f;
+  --color-prio-alta: #d9752b;
+  --color-prio-urgente: #c0392b;
+
+  --color-cat-aberto: #8d8577;
+  --color-cat-andamento: #3f6ea8;
+  --color-cat-concluido: #4a7c59;
+  --color-cat-cancelado: #9b5b52;
+
+  /* Bordas discretas: 2-3px, nunca mais. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+
+  /* Sombra so no hover e no que esta sendo arrastado. */
+  --shadow-hover: 0 1px 2px rgb(33 29 23 / 0.08), 0 2px 6px rgb(33 29 23 / 0.06);
+  --shadow-arrasto: 0 4px 14px rgb(33 29 23 / 0.16);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-papel);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    /* Tela de trabalho: densa, mas legivel o dia inteiro. */
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Todo numero e mono: protocolo, codigo, data, contador.
+     E o que da o ar de ferramenta de engenharia. */
+  .num {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-acento);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-acento) 22%, transparent);
+  }
+}
+
+@layer utilities {
+  /* 120-160ms em hover e drag. Nada de animacao de entrada em lista. */
+  .transicao {
+    transition-property: background-color, border-color, color, box-shadow, transform;
+    transition-duration: 140ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transicao {
+    transition-duration: 0ms;
+  }
+}
