@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Selo } from "@/components/ui/Selo";
 import {
   AGRUPAMENTOS_KANBAN,
@@ -14,11 +14,12 @@ import {
 import { agruparCards } from "@/lib/agrupar";
 import { chamar } from "@/lib/api";
 import { Card } from "./Card";
+import { useArrasto } from "./useArrasto";
 
 /**
- * Drag & drop com HTML5 nativo - sem biblioteca. O card arrastado carrega o id
- * no dataTransfer; a coluna calcula onde ele cairia e manda os VIZINHOS para o
- * servidor, nunca a posicao: e o servidor que decide o rank.
+ * O card arrastado acompanha o cursor, inclinado e com sombra; o lugar de origem
+ * fica como um vao tracejado. O calculo de posicao nao muda: o cliente manda os
+ * VIZINHOS para o servidor, nunca o indice - e o servidor que decide o rank.
  *
  * Arrastar so existe no agrupamento por etapa. Nos outros eixos as colunas sao
  * derivadas dos cards, e mover um card entre elas significaria editar um campo
@@ -26,23 +27,14 @@ import { Card } from "./Card";
  * historico, e nao por arrasto silencioso.
  */
 
-interface Alvo {
-  columnId: string;
-  indice: number;
-}
-
-/**
- * Onde o card vai cair. Fica em absolute, dentro do vao de 6px entre os cards:
- * ocupar espaco no fluxo faria a coluna inteira pular a cada movimento do mouse.
- */
-function Indicador({ alerta = false, noFim = false }: { alerta?: boolean; noFim?: boolean }) {
+function Indicador({ alerta = false }: { alerta?: boolean }) {
   const cor = alerta ? "bg-prio-alta" : "bg-acento";
   return (
     <span
       aria-hidden
-      className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full ${cor} ${
-        noFim ? "-bottom-1" : "-top-1"
-      }`}
+      /* Absolute dentro do vao de 6px entre os cards: ocupar espaco no fluxo
+         faria a coluna inteira pular a cada movimento do mouse. */
+      className={`pointer-events-none absolute inset-x-0 -top-1 z-10 h-0.5 rounded-full ${cor}`}
     >
       <span className={`absolute -left-0.5 -top-[3px] size-2 rounded-full ${cor}`} />
     </span>
@@ -64,8 +56,6 @@ export function Quadro({
   const [eixo, setEixo] = useState<AgrupamentoKanban>("etapa");
   const [apenasMinhas, setApenasMinhas] = useState(false);
   const [filtroEtiqueta, setFiltroEtiqueta] = useState<string | null>(null);
-  const [arrastando, setArrastando] = useState<TaskCard | null>(null);
-  const [alvo, setAlvo] = useState<Alvo | null>(null);
   const [otimista, setOtimista] = useState<TaskCard[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -79,45 +69,47 @@ export function Quadro({
     return v;
   }, [todos, apenasMinhas, filtroEtiqueta, euId]);
 
-  const grupos = useMemo(
-    () => agruparCards(visiveis, colunas, eixo),
-    [visiveis, colunas, eixo],
+  const grupos = useMemo(() => agruparCards(visiveis, colunas, eixo), [visiveis, colunas, eixo]);
+
+  const soltar = useCallback(
+    async (colunaId: string, indice: number, card: TaskCard) => {
+      const grupo = agruparCards(visiveis, colunas, "etapa").find((g) => g.id === colunaId);
+      // Vizinhos calculados sem o proprio card: mover dentro da mesma coluna
+      // desloca todo mundo que vem depois dele.
+      const lista = (grupo?.cards ?? []).filter((c) => c.id !== card.id);
+      const posicao = Math.min(indice, lista.length);
+      const antesDeId = lista[posicao - 1]?.id ?? null;
+      const depoisDeId = lista[posicao]?.id ?? null;
+
+      // Largado exatamente onde estava: nada a fazer.
+      if (card.columnId === colunaId && antesDeId === null && depoisDeId === null) return;
+
+      const anterior = todos;
+      setOtimista(todos.map((c) => (c.id === card.id ? { ...c, columnId: colunaId } : c)));
+      setErro(null);
+
+      const r = await chamar("/api/kanban/mover", "POST", {
+        taskId: card.id,
+        columnId: colunaId,
+        antesDeId,
+        depoisDeId,
+      });
+
+      if (!r.ok) {
+        setOtimista(anterior);
+        setErro(r.erro);
+        return;
+      }
+      setOtimista(null);
+      router.refresh();
+    },
+    [visiveis, colunas, todos, router],
   );
 
-  async function soltar(columnId: string, indice: number) {
-    const card = arrastando;
-    setArrastando(null);
-    setAlvo(null);
-    if (!card || !podeArrastar) return;
-
-    const grupo = grupos.find((g) => g.id === columnId);
-    // Vizinhos calculados sem o proprio card: mover dentro da mesma coluna
-    // desloca todo mundo que vem depois dele.
-    const lista = (grupo?.cards ?? []).filter((c) => c.id !== card.id);
-    const antesDeId = lista[indice - 1]?.id ?? null;
-    const depoisDeId = lista[indice] ?.id ?? null;
-
-    if (card.columnId === columnId && antesDeId === null && depoisDeId === null) return;
-
-    const anterior = todos;
-    setOtimista(todos.map((c) => (c.id === card.id ? { ...c, columnId } : c)));
-    setErro(null);
-
-    const r = await chamar("/api/kanban/mover", "POST", {
-      taskId: card.id,
-      columnId,
-      antesDeId,
-      depoisDeId,
-    });
-
-    if (!r.ok) {
-      setOtimista(anterior);
-      setErro(r.erro);
-      return;
-    }
-    setOtimista(null);
-    router.refresh();
-  }
+  const { arrasto, comecar } = useArrasto(
+    (colunaId, indice, card) => void soltar(colunaId, indice, card),
+    podeArrastar,
+  );
 
   return (
     <>
@@ -198,32 +190,23 @@ export function Quadro({
           Nenhuma rotina para este filtro.
         </p>
       ) : (
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div data-board-rolagem className="flex gap-2 overflow-x-auto pb-2">
           {grupos.map((grupo) => {
             const lista = grupo.cards;
             const estourou = grupo.wipLimit !== null && lista.length > grupo.wipLimit;
-            const recebendo = podeArrastar && arrastando !== null && alvo?.columnId === grupo.id;
+            const recebendo = arrasto?.alvo?.colunaId === grupo.id;
             const vaiEstourar =
               recebendo &&
               grupo.wipLimit !== null &&
-              arrastando.columnId !== grupo.id &&
+              arrasto.card.columnId !== grupo.id &&
               lista.length + 1 > grupo.wipLimit;
 
             return (
               <section
                 key={grupo.id}
+                data-coluna-id={podeArrastar ? grupo.id : undefined}
+                data-coluna-total={lista.length}
                 className="flex w-72 shrink-0 flex-col"
-                onDragOver={(e) => {
-                  if (!podeArrastar) return;
-                  e.preventDefault();
-                  // Largar na area vazia abaixo dos cards = ir para o fim.
-                  setAlvo({ columnId: grupo.id, indice: lista.length });
-                }}
-                onDrop={(e) => {
-                  if (!podeArrastar) return;
-                  e.preventDefault();
-                  void soltar(grupo.id, alvo?.columnId === grupo.id ? alvo.indice : lista.length);
-                }}
               >
                 <header
                   className="mb-1.5 flex items-baseline gap-2 border-b-2 pb-1.5"
@@ -250,49 +233,40 @@ export function Quadro({
                       : "outline-transparent"
                   }`}
                 >
-                  {lista.map((card, i) => (
-                    <div
-                      key={card.id}
-                      draggable={podeArrastar}
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", card.id);
-                        setArrastando(card);
-                      }}
-                      onDragEnd={() => {
-                        setArrastando(null);
-                        setAlvo(null);
-                      }}
-                      onDragOver={(e) => {
-                        if (!podeArrastar) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Metade de cima = entrar antes dele; metade de baixo = depois.
-                        const r = e.currentTarget.getBoundingClientRect();
-                        const acima = e.clientY < r.top + r.height / 2;
-                        setAlvo({ columnId: grupo.id, indice: acima ? i : i + 1 });
-                      }}
-                      onDrop={(e) => {
-                        if (!podeArrastar) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void soltar(grupo.id, alvo?.indice ?? i);
-                      }}
-                      /* `relative` para o indicador poder ficar em absolute: uma
-                         linha no fluxo empurraria a coluna a cada movimento. */
-                      className="relative"
-                    >
-                      {recebendo && alvo.indice === i && <Indicador alerta={vaiEstourar} />}
-                      <Card
-                        card={card}
-                        arrastando={arrastando?.id === card.id}
-                        arrastavel={podeArrastar}
-                      />
-                      {recebendo && alvo.indice === lista.length && i === lista.length - 1 && (
-                        <Indicador alerta={vaiEstourar} noFim />
-                      )}
+                  {lista.map((card, i) => {
+                    const saindo = arrasto?.card.id === card.id;
+                    return (
+                      <div
+                        key={card.id}
+                        data-coluna-id={podeArrastar ? grupo.id : undefined}
+                        data-card-indice={podeArrastar ? i : undefined}
+                        onPointerDown={(e) => comecar(e, card)}
+                        /* `relative` para o indicador ficar em absolute sem
+                           empurrar a coluna a cada movimento do mouse. */
+                        className="relative"
+                      >
+                        {recebendo && arrasto.alvo?.indice === i && (
+                          <Indicador alerta={vaiEstourar} />
+                        )}
+                        {saindo ? (
+                          // O card nao some: ele esta na mao. Aqui fica o vao do
+                          // tamanho exato dele, para a coluna nao encolher.
+                          <div
+                            style={{ height: arrasto.altura }}
+                            className="rounded-sm border border-dashed border-linha-forte bg-papel-baixo/30"
+                          />
+                        ) : (
+                          <Card card={card} arrastavel={podeArrastar} />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {recebendo && arrasto.alvo?.indice === lista.length && lista.length > 0 && (
+                    <div className="relative">
+                      <Indicador alerta={vaiEstourar} />
                     </div>
-                  ))}
+                  )}
 
                   {lista.length === 0 && (
                     <p
@@ -307,6 +281,21 @@ export function Quadro({
               </section>
             );
           })}
+        </div>
+      )}
+
+      {/* O card na mao. pointer-events:none para o elementsFromPoint enxergar a
+          coluna por baixo dele. */}
+      {arrasto && (
+        <div
+          className="pointer-events-none fixed left-0 top-0 z-50"
+          style={{
+            width: arrasto.largura,
+            transform: `translate3d(${arrasto.x}px, ${arrasto.y}px, 0) rotate(1.5deg) scale(1.02)`,
+            filter: "drop-shadow(0 8px 18px rgb(33 29 23 / 0.28))",
+          }}
+        >
+          <Card card={arrasto.card} arrastavel />
         </div>
       )}
     </>

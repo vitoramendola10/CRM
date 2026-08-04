@@ -159,7 +159,6 @@ export const ROTAS = {
   login: "/login",
   kanban: "/kanban",
   atendimentos: "/atendimentos",
-  clientes: "/clientes",
   dashboard: "/dashboard",
   config: "/config",
 } as const;
@@ -182,10 +181,8 @@ export const ROTA_INICIAL: Record<Papel, Rota> = {
 export const PAPEIS_POR_ROTA: Record<string, readonly Papel[]> = {
   [ROTAS.kanban]: ["admin", "gestor", "suporte", "dev"],
   [ROTAS.atendimentos]: ["admin", "gestor", "suporte", "dev"],
-  // Cadastro de cliente nao e configuracao: o suporte precisa criar um no meio
-  // de um atendimento, entao a area e de todos os papeis.
-  [ROTAS.clientes]: ["admin", "gestor", "suporte", "dev"],
   [ROTAS.dashboard]: ["admin", "gestor"],
+  // Inclui /config/clientes: o cadastro de cliente e configuracao do sistema.
   [ROTAS.config]: ["admin", "gestor"],
 };
 
@@ -216,13 +213,13 @@ export const VISOES_KANBAN = [
 export const NAVEGACAO: readonly { href: Rota; rotulo: string }[] = [
   { href: ROTAS.kanban, rotulo: "Kanban" },
   { href: ROTAS.atendimentos, rotulo: "Atendimentos" },
-  { href: ROTAS.clientes, rotulo: "Clientes" },
   { href: ROTAS.dashboard, rotulo: "Dashboard" },
   { href: ROTAS.config, rotulo: "Configuracao" },
 ];
 
 /** Abas de /config. Sao sub-rotas, entao herdam a permissao de ROTAS.config. */
 export const ABAS_CONFIG = [
+  { href: "/config/clientes", rotulo: "Clientes" },
   { href: "/config/colunas", rotulo: "Etapas do processo" },
   { href: "/config/status", rotulo: "Status" },
   { href: "/config/tipos", rotulo: "Tipos de rotina" },

@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Botao } from "@/components/ui/Botao";
@@ -63,7 +64,11 @@ export function ListaClientes({
 
   function procurar(e: React.FormEvent) {
     e.preventDefault();
-    router.push(busca.trim() === "" ? "/clientes" : `/clientes?busca=${encodeURIComponent(busca)}`);
+    router.push(
+      busca.trim() === ""
+        ? "/config/clientes"
+        : (`/config/clientes?busca=${encodeURIComponent(busca)}` as Route),
+    );
   }
 
   async function salvar() {

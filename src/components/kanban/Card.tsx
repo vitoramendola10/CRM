@@ -9,11 +9,9 @@ import { diasCorridos, formatarData, humanizarDias } from "@/lib/datas";
  */
 export function Card({
   card,
-  arrastando = false,
   arrastavel = true,
 }: {
   card: TaskCard;
-  arrastando?: boolean;
   arrastavel?: boolean;
 }) {
   const dias = diasCorridos(card.inicio);
@@ -21,15 +19,11 @@ export function Card({
 
   return (
     <article
-      /* Enquanto arrasta, o lugar de origem vira um contorno tracejado vazio -
-         le como "isto esta saindo daqui", nao como card meio apagado. O cursor
-         de mao so aparece quando arrastar de fato faz alguma coisa. */
-      className={`transicao relative rounded-sm border py-2 pl-3 pr-2.5 ${
+      /* O card continua inteiro enquanto e arrastado - quem o desenha na mao e
+         o Quadro, com este mesmo componente. O cursor de mao so aparece quando
+         arrastar de fato faz alguma coisa. */
+      className={`transicao relative rounded-sm border border-linha bg-papel-alto py-2 pl-3 pr-2.5 hover:border-linha-forte hover:shadow-hover ${
         arrastavel ? "cursor-grab active:cursor-grabbing" : ""
-      } ${
-        arrastando
-          ? "border-dashed border-linha-forte bg-papel-baixo/40 opacity-45 [&_*]:invisible"
-          : "border-linha bg-papel-alto hover:border-linha-forte hover:shadow-hover"
       }`}
     >
       {/* Barra lateral = prioridade. Unica cor sempre presente no card. */}
