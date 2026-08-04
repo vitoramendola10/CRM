@@ -17,6 +17,25 @@ interface Alvo {
   indice: number;
 }
 
+/**
+ * Onde o card vai cair. Fica em absolute, dentro do vao de 6px entre os cards:
+ * ocupar espaco no fluxo faria a coluna inteira pular a cada movimento do mouse.
+ * A bolinha na ponta esquerda alinha com a barra de prioridade do card.
+ */
+function Indicador({ alerta = false, noFim = false }: { alerta?: boolean; noFim?: boolean }) {
+  const cor = alerta ? "bg-prio-alta" : "bg-acento";
+  return (
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 rounded-full ${cor} ${
+        noFim ? "-bottom-1" : "-top-1"
+      }`}
+    >
+      <span className={`absolute -left-0.5 -top-[3px] size-2 rounded-full ${cor}`} />
+    </span>
+  );
+}
+
 export function Quadro({
   colunas,
   cards,
@@ -117,28 +136,39 @@ export function Quadro({
           const lista = daColuna(coluna.id);
           const estourou = coluna.wipLimit !== null && lista.length > coluna.wipLimit;
 
+          const recebendo = arrastando !== null && alvo?.columnId === coluna.id;
+          // Cair aqui estouraria o limite? Avisa antes de soltar, nao depois.
+          const vaiEstourar =
+            recebendo &&
+            coluna.wipLimit !== null &&
+            arrastando.columnId !== coluna.id &&
+            lista.length + 1 > coluna.wipLimit;
+
           return (
             <section
               key={coluna.id}
               className="flex w-72 shrink-0 flex-col"
               onDragOver={(e) => {
                 e.preventDefault();
-                // Largar na area vazia da coluna = ir para o fim.
-                if (e.target === e.currentTarget) {
-                  setAlvo({ columnId: coluna.id, indice: lista.length });
-                }
+                // Largar na area vazia abaixo dos cards = ir para o fim.
+                setAlvo({ columnId: coluna.id, indice: lista.length });
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 void soltar(coluna.id, alvo?.columnId === coluna.id ? alvo.indice : lista.length);
               }}
             >
-              <header className="mb-1.5 flex items-baseline gap-2 border-b-2 pb-1.5" style={{ borderColor: coluna.cor }}>
+              <header
+                className="mb-1.5 flex items-baseline gap-2 border-b-2 pb-1.5"
+                style={{ borderColor: vaiEstourar ? "var(--color-prio-alta)" : coluna.cor }}
+              >
                 <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em]">
                   {coluna.nome}
                 </h2>
                 <span
-                  className={`num ml-auto text-[11px] ${estourou ? "font-medium text-prio-alta" : "text-tinta-fraca"}`}
+                  className={`num ml-auto text-[11px] ${
+                    estourou || vaiEstourar ? "font-medium text-prio-alta" : "text-tinta-fraca"
+                  }`}
                   title={coluna.wipLimit === null ? undefined : `Limite de ${coluna.wipLimit}`}
                 >
                   {lista.length}
@@ -146,7 +176,11 @@ export function Quadro({
                 </span>
               </header>
 
-              <div className="flex min-h-24 flex-1 flex-col gap-1.5">
+              <div
+                className={`transicao flex min-h-24 flex-1 flex-col gap-1.5 rounded-sm ${
+                  recebendo ? "bg-papel-alto/70 outline-1 outline-linha-forte" : "outline-transparent"
+                }`}
+              >
                 {lista.map((card, i) => (
                   <div
                     key={card.id}
@@ -173,23 +207,27 @@ export function Quadro({
                       e.stopPropagation();
                       void soltar(coluna.id, alvo?.indice ?? i);
                     }}
-                    className={
-                      alvo?.columnId === coluna.id && alvo.indice === i
-                        ? "border-t-2 border-acento pt-1"
-                        : ""
-                    }
+                    /* `relative` para o indicador poder ficar em absolute: uma linha
+                       no fluxo empurraria a coluna toda a cada movimento do mouse. */
+                    className="relative"
                   >
+                    {recebendo && alvo.indice === i && <Indicador alerta={vaiEstourar} />}
                     <Card card={card} arrastando={arrastando?.id === card.id} />
+                    {recebendo && alvo.indice === lista.length && i === lista.length - 1 && (
+                      <Indicador alerta={vaiEstourar} noFim />
+                    )}
                   </div>
                 ))}
 
-                {alvo?.columnId === coluna.id && alvo.indice === lista.length && (
-                  <div className="h-0.5 rounded-full bg-acento" />
-                )}
-
                 {lista.length === 0 && (
-                  <p className="rounded-sm border border-dashed border-linha px-2 py-4 text-center text-[12px] text-tinta-fraca">
-                    Nada aqui.
+                  <p
+                    className={`transicao rounded-sm border border-dashed px-2 py-4 text-center text-[12px] ${
+                      recebendo
+                        ? "border-acento text-acento"
+                        : "border-linha text-tinta-fraca"
+                    }`}
+                  >
+                    {recebendo ? "Soltar aqui" : "Nada aqui."}
                   </p>
                 )}
               </div>

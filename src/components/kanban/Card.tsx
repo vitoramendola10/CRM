@@ -19,8 +19,13 @@ export function Card({
 
   return (
     <article
-      className={`transicao relative rounded-sm border border-linha bg-papel-alto py-2 pl-3 pr-2.5 ${
-        arrastando ? "opacity-40" : "hover:border-linha-forte hover:shadow-hover"
+      /* Enquanto arrasta, o lugar de origem vira um contorno tracejado vazio -
+         le como "isto esta saindo daqui", nao como card meio apagado. O cursor
+         de mao so aparece no card porque so ele e arrastavel. */
+      className={`transicao relative cursor-grab rounded-sm border py-2 pl-3 pr-2.5 active:cursor-grabbing ${
+        arrastando
+          ? "border-dashed border-linha-forte bg-papel-baixo/40 opacity-45 [&_*]:invisible"
+          : "border-linha bg-papel-alto hover:border-linha-forte hover:shadow-hover"
       }`}
     >
       {/* Barra lateral = prioridade. Unica cor sempre presente no card. */}
