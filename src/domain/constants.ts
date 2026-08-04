@@ -1,4 +1,5 @@
 import type {
+  BoardColumn,
   CanalTicket,
   CategoriaStatus,
   DestinoNotificacao,
@@ -137,6 +138,16 @@ export const COR_CATEGORIA: Record<CategoriaStatus, string> = {
   cancelado: "#9b5b52",
 };
 
+/** Situacao de chamado e enum fixo, entao a cor vive aqui e nao no banco. */
+export const COR_SITUACAO_TICKET: Record<SituacaoTicket, string> = {
+  aberto: "#8d8577",
+  em_atendimento: "#3f6ea8",
+  aguardando_cliente: "#c99a3f",
+  aguardando_dev: "#8a5426",
+  resolvido: "#4a7c59",
+  cancelado: "#9b5b52",
+};
+
 export const COR_NEUTRA_COLUNA = "#8d8577";
 
 // ------------------------------------------------------------------
@@ -151,8 +162,14 @@ export const ROTAS = {
   config: "/config",
 } as const;
 
+/**
+ * O literal de cada rota, nao `string`. E o que faz o typedRoutes do Next
+ * conseguir conferir <Link> e redirect() mesmo com a rota vindo do dominio.
+ */
+export type Rota = (typeof ROTAS)[keyof typeof ROTAS];
+
 /** Para onde cada papel cai depois do login. */
-export const ROTA_INICIAL: Record<Papel, string> = {
+export const ROTA_INICIAL: Record<Papel, Rota> = {
   admin: ROTAS.dashboard,
   gestor: ROTAS.dashboard,
   suporte: ROTAS.atendimentos,
@@ -167,12 +184,50 @@ export const PAPEIS_POR_ROTA: Record<string, readonly Papel[]> = {
   [ROTAS.config]: ["admin", "gestor"],
 };
 
+/** A barra de navegacao e isto filtrado por `podeAcessar`. Ordem = ordem de exibicao. */
+export const NAVEGACAO: readonly { href: Rota; rotulo: string }[] = [
+  { href: ROTAS.kanban, rotulo: "Kanban" },
+  { href: ROTAS.atendimentos, rotulo: "Atendimentos" },
+  { href: ROTAS.dashboard, rotulo: "Dashboard" },
+  { href: ROTAS.config, rotulo: "Configuracao" },
+];
+
+/** Abas de /config. Sao sub-rotas, entao herdam a permissao de ROTAS.config. */
+export const ABAS_CONFIG = [
+  { href: "/config/colunas", rotulo: "Etapas do processo" },
+  { href: "/config/status", rotulo: "Status" },
+  { href: "/config/tipos", rotulo: "Tipos de rotina" },
+  { href: "/config/usuarios", rotulo: "Usuarios" },
+  { href: "/config/notificacoes", rotulo: "Notificacoes" },
+] as const;
+
 export function podeAcessar(papel: Papel, pathname: string): boolean {
   const rota = Object.keys(PAPEIS_POR_ROTA).find(
     (base) => pathname === base || pathname.startsWith(`${base}/`),
   );
   if (!rota) return true;
   return PAPEIS_POR_ROTA[rota]!.includes(papel);
+}
+
+// ------------------------------------------------------------------
+// Etapas do processo -> categoria
+// ------------------------------------------------------------------
+
+/**
+ * Coluna nao tem campo `categoria` - so status tem. A posicao dela no board e
+ * que diz o significado: a primeira e a fila de entrada, a marcada com `isDone`
+ * e a entrega, e tudo entre as duas e trabalho em andamento.
+ *
+ * E isto que decide quando `iniciadoEm` e preenchido, entao vive no dominio e
+ * nao dentro do service: relatorio e Kanban precisam ler a mesma regra.
+ */
+export function categoriaDaColuna(
+  coluna: Pick<BoardColumn, "id" | "ordem" | "isDone">,
+  todas: readonly Pick<BoardColumn, "id" | "ordem" | "isDone">[],
+): CategoriaStatus {
+  if (coluna.isDone) return "concluido";
+  const primeira = todas.reduce((a, b) => (a.ordem <= b.ordem ? a : b));
+  return coluna.id === primeira.id ? "aberto" : "andamento";
 }
 
 // ------------------------------------------------------------------

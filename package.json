@@ -11,20 +11,25 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "db:setup": "npm run db:migrate && npm run db:seed"
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "worker": "tsx src/workers/outbox.ts",
+    "outbox:once": "tsx src/workers/uma-rodada.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",
     "drizzle-orm": "0.45.2",
     "mysql2": "3.23.2",
     "next": "15.5.22",
+    "nodemailer": "^9.0.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.1.2",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "dotenv": "17.2.3",
