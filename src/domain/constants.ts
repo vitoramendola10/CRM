@@ -1,4 +1,5 @@
 import type {
+  AgrupamentoKanban,
   BoardColumn,
   CanalTicket,
   CategoriaStatus,
@@ -158,6 +159,7 @@ export const ROTAS = {
   login: "/login",
   kanban: "/kanban",
   atendimentos: "/atendimentos",
+  clientes: "/clientes",
   dashboard: "/dashboard",
   config: "/config",
 } as const;
@@ -180,14 +182,41 @@ export const ROTA_INICIAL: Record<Papel, Rota> = {
 export const PAPEIS_POR_ROTA: Record<string, readonly Papel[]> = {
   [ROTAS.kanban]: ["admin", "gestor", "suporte", "dev"],
   [ROTAS.atendimentos]: ["admin", "gestor", "suporte", "dev"],
+  // Cadastro de cliente nao e configuracao: o suporte precisa criar um no meio
+  // de um atendimento, entao a area e de todos os papeis.
+  [ROTAS.clientes]: ["admin", "gestor", "suporte", "dev"],
   [ROTAS.dashboard]: ["admin", "gestor"],
   [ROTAS.config]: ["admin", "gestor"],
 };
+
+export const AGRUPAMENTOS_KANBAN = [
+  "etapa",
+  "responsavel",
+  "prioridade",
+  "cliente",
+  "etiqueta",
+] as const satisfies readonly AgrupamentoKanban[];
+
+export const ROTULO_AGRUPAMENTO: Record<AgrupamentoKanban, string> = {
+  etapa: "Etapa",
+  responsavel: "Responsavel",
+  prioridade: "Prioridade",
+  cliente: "Cliente",
+  etiqueta: "Etiqueta",
+};
+
+/** Abas de visualizacao do board. Sao a mesma consulta, exibida de tres jeitos. */
+export const VISOES_KANBAN = [
+  { href: "/kanban", rotulo: "Quadro" },
+  { href: "/kanban/calendario", rotulo: "Calendario" },
+  { href: "/kanban/gantt", rotulo: "Gantt" },
+] as const;
 
 /** A barra de navegacao e isto filtrado por `podeAcessar`. Ordem = ordem de exibicao. */
 export const NAVEGACAO: readonly { href: Rota; rotulo: string }[] = [
   { href: ROTAS.kanban, rotulo: "Kanban" },
   { href: ROTAS.atendimentos, rotulo: "Atendimentos" },
+  { href: ROTAS.clientes, rotulo: "Clientes" },
   { href: ROTAS.dashboard, rotulo: "Dashboard" },
   { href: ROTAS.config, rotulo: "Configuracao" },
 ];
@@ -197,6 +226,7 @@ export const ABAS_CONFIG = [
   { href: "/config/colunas", rotulo: "Etapas do processo" },
   { href: "/config/status", rotulo: "Status" },
   { href: "/config/tipos", rotulo: "Tipos de rotina" },
+  { href: "/config/etiquetas", rotulo: "Etiquetas" },
   { href: "/config/usuarios", rotulo: "Usuarios" },
   { href: "/config/notificacoes", rotulo: "Notificacoes" },
 ] as const;

@@ -57,6 +57,22 @@ export async function validarCorpo<T>(
   return { ok: true, dados: r.data };
 }
 
+/**
+ * Violacao de UNIQUE. Precisa andar pela cadeia de `cause`: o Drizzle embrulha o
+ * erro do driver numa DrizzleQueryError cuja `message` e so "Failed query: ...",
+ * e o ER_DUP_ENTRY original fica no erro de origem.
+ */
+export function ehDuplicata(e: unknown): boolean {
+  let atual: unknown = e;
+  for (let i = 0; atual !== null && atual !== undefined && i < 5; i++) {
+    const err = atual as { code?: unknown; message?: unknown; cause?: unknown };
+    if (err.code === "ER_DUP_ENTRY") return true;
+    if (typeof err.message === "string" && /duplicate entry/i.test(err.message)) return true;
+    atual = err.cause;
+  }
+  return false;
+}
+
 /** Protocolo vindo da URL como texto. So inteiro positivo passa. */
 export function protocoloDaUrl(bruto: string): number {
   const n = Number(bruto);

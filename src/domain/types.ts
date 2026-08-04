@@ -40,6 +40,7 @@ export interface Cliente {
   nomeFantasia: string | null;
   cnpj: string | null;
   telefone: string | null;
+  email: string | null;
   cidade: string | null;
   uf: string | null;
   ativo: boolean;
@@ -75,6 +76,18 @@ export interface TaskStatus {
 }
 
 export interface TaskType {
+  id: string;
+  nome: string;
+  cor: string;
+  ativo: boolean;
+}
+
+/**
+ * Marcador transversal da rotina, N:N. Nao substitui o TIPO: o tipo e um so e
+ * diz a natureza do trabalho (bug, melhoria); a etiqueta acumula e corta o board
+ * por outro eixo ("fiscal", "regressao", "cliente-chave").
+ */
+export interface Etiqueta {
   id: string;
   nome: string;
   cor: string;
@@ -182,13 +195,23 @@ export interface TaskCard {
   solicitacao: number | null; // ticketId
   assunto: string; // titulo
   cliente: string | null; // razaoSocial
+  clienteId: string | null; // para agrupar o board por cliente
   responsavel: { id: string; nome: string } | null;
   status: { nome: string; cor: string; categoria: CategoriaStatus };
   inicio: string | null; // iniciadoEm
+  prazo: string | null; // alimenta calendario e Gantt
   prioridade: Prioridade;
+  etiquetas: Etiqueta[];
   columnId: string;
   rank: string;
 }
+
+/**
+ * Por qual campo o board se divide em colunas. "etapa" e o Kanban de verdade -
+ * o unico em que arrastar significa mover o processo, e por isso o unico com
+ * drag & drop. Os outros sao leituras do mesmo conjunto de cards.
+ */
+export type AgrupamentoKanban = "etapa" | "responsavel" | "prioridade" | "cliente" | "etiqueta";
 
 /** Usuario ja autenticado, o que a sessao carrega. Nunca inclui senha_hash. */
 export type UsuarioSessao = Pick<Usuario, "id" | "username" | "nome" | "papel">;

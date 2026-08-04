@@ -36,7 +36,7 @@ import type {
 } from "@/domain";
 import { ROTULO_CATEGORIA } from "@/domain";
 import { gerarHash } from "@/lib/password";
-import { ErroDeNegocio } from "@/lib/rota";
+import { ErroDeNegocio, ehDuplicata } from "@/lib/rota";
 
 /**
  * Regras de configuracao. O tema comum: renomear e recolorir sao livres, mas
@@ -182,9 +182,7 @@ export async function novoUsuario(dados: CriarUsuarioInput): Promise<string> {
     });
   } catch (e) {
     // Corrida entre duas telas: o UNIQUE do banco e quem decide, nao um SELECT antes.
-    if (e instanceof Error && /ER_DUP_ENTRY|Duplicate entry/i.test(e.message)) {
-      throw new ErroDeNegocio(`O usuario "${dados.username}" ja existe.`);
-    }
+    if (ehDuplicata(e)) throw new ErroDeNegocio(`O usuario "${dados.username}" ja existe.`);
     throw e;
   }
   return id;

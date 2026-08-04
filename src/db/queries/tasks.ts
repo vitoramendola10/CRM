@@ -11,6 +11,7 @@ import {
   users,
 } from "../schema";
 import type { Task, TaskCard, TaskComment, TaskHistory } from "@/domain";
+import { etiquetasDeVariasTasks } from "./etiquetas";
 
 /**
  * Leitura e escrita das rotinas de dev.
@@ -29,12 +30,14 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
       solicitacao: tasks.ticketId,
       assunto: tasks.titulo,
       cliente: clients.razaoSocial,
+      clienteId: tasks.clientId,
       responsavelId: users.id,
       responsavelNome: users.nome,
       statusNome: taskStatuses.nome,
       statusCor: taskStatuses.cor,
       statusCategoria: taskStatuses.categoria,
       inicio: tasks.iniciadoEm,
+      prazo: tasks.prazo,
       prioridade: tasks.prioridade,
       columnId: tasks.columnId,
       rank: tasks.rank,
@@ -50,16 +53,23 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
     )
     .orderBy(asc(tasks.columnId), asc(tasks.rank));
 
+  // Uma segunda query para as etiquetas, nao um join: um join N:N multiplicaria
+  // as linhas dos cards e o agrupamento teria de ser desfeito depois.
+  const etiquetas = await etiquetasDeVariasTasks(linhas.map((l) => l.id));
+
   return linhas.map((l) => ({
     id: l.id,
     codigo: l.codigo,
     solicitacao: l.solicitacao,
     assunto: l.assunto,
     cliente: l.cliente,
+    clienteId: l.clienteId,
     responsavel: l.responsavelId ? { id: l.responsavelId, nome: l.responsavelNome! } : null,
     status: { nome: l.statusNome, cor: l.statusCor, categoria: l.statusCategoria },
     inicio: l.inicio,
+    prazo: l.prazo,
     prioridade: l.prioridade,
+    etiquetas: etiquetas[l.id] ?? [],
     columnId: l.columnId,
     rank: l.rank,
   }));

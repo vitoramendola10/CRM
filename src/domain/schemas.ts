@@ -95,12 +95,24 @@ export const clienteSchema = z.object({
     .nullable()
     .default(null),
   telefone: textoOpcional(32),
+  email: z
+    .string()
+    .trim()
+    .max(160)
+    .refine((v) => v === "" || z.email().safeParse(v).success, "E-mail invalido")
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .default(null),
   cidade: textoOpcional(120),
+  // Opcional, mas se vier tem de ser UF de verdade. Sem `.max()` antes do
+  // refine: o erro de tamanho dispararia primeiro, com a mensagem padrao do zod
+  // em vez da nossa.
   uf: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z]{2}$/, "UF deve ter 2 letras")
+    .refine((v) => v === "" || /^[A-Z]{2}$/.test(v), "UF deve ter 2 letras")
+    .transform((v) => (v === "" ? null : v))
     .nullable()
     .default(null),
   ativo: z.boolean().default(true),
@@ -156,6 +168,19 @@ export const taskTypeSchema = z.object({
   ativo: z.boolean().default(true),
 });
 export type TaskTypeInput = z.infer<typeof taskTypeSchema>;
+
+export const etiquetaSchema = z.object({
+  nome: texto(60),
+  cor: corHex,
+  ativo: z.boolean().default(true),
+});
+export type EtiquetaInput = z.infer<typeof etiquetaSchema>;
+
+/** As etiquetas da rotina sao gravadas de uma vez: a lista enviada vira a lista final. */
+export const etiquetasDaTaskSchema = z.object({
+  etiquetaIds: z.array(uuid).max(20),
+});
+export type EtiquetasDaTaskInput = z.infer<typeof etiquetasDaTaskSchema>;
 
 // ------------------------------------------------------------------
 // Suporte

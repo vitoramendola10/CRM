@@ -10,9 +10,11 @@ import { diasCorridos, formatarData, humanizarDias } from "@/lib/datas";
 export function Card({
   card,
   arrastando = false,
+  arrastavel = true,
 }: {
   card: TaskCard;
   arrastando?: boolean;
+  arrastavel?: boolean;
 }) {
   const dias = diasCorridos(card.inicio);
   const velho = dias !== null && dias > DIAS_CARD_ENVELHECIDO;
@@ -21,8 +23,10 @@ export function Card({
     <article
       /* Enquanto arrasta, o lugar de origem vira um contorno tracejado vazio -
          le como "isto esta saindo daqui", nao como card meio apagado. O cursor
-         de mao so aparece no card porque so ele e arrastavel. */
-      className={`transicao relative cursor-grab rounded-sm border py-2 pl-3 pr-2.5 active:cursor-grabbing ${
+         de mao so aparece quando arrastar de fato faz alguma coisa. */
+      className={`transicao relative rounded-sm border py-2 pl-3 pr-2.5 ${
+        arrastavel ? "cursor-grab active:cursor-grabbing" : ""
+      } ${
         arrastando
           ? "border-dashed border-linha-forte bg-papel-baixo/40 opacity-45 [&_*]:invisible"
           : "border-linha bg-papel-alto hover:border-linha-forte hover:shadow-hover"
@@ -56,6 +60,26 @@ export function Card({
       >
         {card.assunto}
       </Link>
+
+      {/* So a cor e o nome curto: o card ja e denso, etiqueta aqui e referencia
+          rapida, nao informacao para ler com atencao. */}
+      {card.etiquetas.length > 0 && (
+        <ul className="mb-2 flex flex-wrap gap-1">
+          {card.etiquetas.map((e) => (
+            <li
+              key={e.id}
+              title={e.nome}
+              className="rounded-xs px-1 text-[10px] leading-[14px]"
+              style={{
+                color: e.cor,
+                backgroundColor: `color-mix(in srgb, ${e.cor} 12%, transparent)`,
+              }}
+            >
+              {e.nome}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <footer className="flex items-center gap-2">
         <Avatar nome={card.responsavel?.nome ?? null} tamanho={20} />

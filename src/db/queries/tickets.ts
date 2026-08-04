@@ -174,6 +174,7 @@ export async function listarClientes(apenasAtivos = true): Promise<Cliente[]> {
       nomeFantasia: clients.nomeFantasia,
       cnpj: clients.cnpj,
       telefone: clients.telefone,
+      email: clients.email,
       cidade: clients.cidade,
       uf: clients.uf,
       ativo: clients.ativo,

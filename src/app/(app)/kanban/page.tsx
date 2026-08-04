@@ -1,6 +1,8 @@
+import { AbasVisao } from "@/components/kanban/AbasVisao";
 import { Quadro } from "@/components/kanban/Quadro";
 import { Cabecalho, Vazio } from "@/components/ui/Cabecalho";
 import { boardPadrao, listarColunas } from "@/db/queries/config";
+import { listarEtiquetas } from "@/db/queries/etiquetas";
 import { listarCards } from "@/db/queries/tasks";
 import { exigirSessao } from "@/lib/auth";
 
@@ -22,15 +24,21 @@ export default async function KanbanPage() {
     );
   }
 
-  const [colunas, cards] = await Promise.all([listarColunas(board.id), listarCards(board.id)]);
+  const [colunas, cards, etiquetas] = await Promise.all([
+    listarColunas(board.id),
+    listarCards(board.id),
+    listarEtiquetas(true),
+  ]);
 
   return (
     <main className="px-4 py-5">
-      <Cabecalho titulo={board.nome} descricao="Arraste os cards entre as etapas do processo." />
+      <Cabecalho titulo={board.nome} descricao="Arraste os cards entre as etapas do processo.">
+        <AbasVisao />
+      </Cabecalho>
       {colunas.length === 0 ? (
         <Vazio titulo="Este board ainda nao tem etapas." detalhe="Cadastre-as em Configuracao." />
       ) : (
-        <Quadro colunas={colunas} cards={cards} euId={usuario.id} />
+        <Quadro colunas={colunas} cards={cards} euId={usuario.id} etiquetas={etiquetas} />
       )}
     </main>
   );

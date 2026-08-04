@@ -12,6 +12,7 @@ import {
   json,
   mysqlEnum,
   mysqlTable,
+  primaryKey,
   text,
   unique,
   varchar,
@@ -85,6 +86,7 @@ export const clients = mysqlTable(
     nomeFantasia: varchar("nome_fantasia", { length: 200 }),
     cnpj: varchar("cnpj", { length: 14 }),
     telefone: varchar("telefone", { length: 32 }),
+    email: varchar("email", { length: 160 }),
     cidade: varchar("cidade", { length: 120 }),
     uf: char("uf", { length: 2 }),
     ativo: boolean("ativo").notNull().default(true),
@@ -259,6 +261,40 @@ export const tasks = mysqlTable(
   ],
 );
 
+/**
+ * Etiquetas livres da rotina, em N:N. Existem ao lado de `task_types` e nao no
+ * lugar dele: o TIPO e um so e classifica a natureza do trabalho (bug, melhoria);
+ * a ETIQUETA e transversal e acumula ("fiscal" + "regressao" + "cliente-chave").
+ */
+export const labels = mysqlTable(
+  "labels",
+  {
+    id: id(),
+    nome: varchar("nome", { length: 60 }).notNull(),
+    cor: cor(),
+    ativo: boolean("ativo").notNull().default(true),
+    createdAt: criadoEm(),
+  },
+  (t) => [unique("uq_labels_nome").on(t.nome)],
+);
+
+export const taskLabels = mysqlTable(
+  "task_labels",
+  {
+    taskId: fk("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    labelId: fk("label_id")
+      .notNull()
+      .references(() => labels.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.labelId] }),
+    // O filtro do board parte da etiqueta para as tarefas.
+    index("idx_task_labels_label").on(t.labelId),
+  ],
+);
+
 export const taskComments = mysqlTable(
   "task_comments",
   {
@@ -410,6 +446,15 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   autor: one(users, { fields: [tasks.criadoPor], references: [users.id] }),
   comentarios: many(taskComments),
   historico: many(taskHistory),
+}));
+
+export const labelsRelations = relations(labels, ({ many }) => ({
+  tarefas: many(taskLabels),
+}));
+
+export const taskLabelsRelations = relations(taskLabels, ({ one }) => ({
+  task: one(tasks, { fields: [taskLabels.taskId], references: [tasks.id] }),
+  label: one(labels, { fields: [taskLabels.labelId], references: [labels.id] }),
 }));
 
 export const taskCommentsRelations = relations(taskComments, ({ one }) => ({

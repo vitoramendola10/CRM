@@ -9,6 +9,7 @@ import {
   listarComentarios,
   listarHistorico,
 } from "@/db/queries/tasks";
+import { etiquetasDaTask, listarEtiquetas } from "@/db/queries/etiquetas";
 import { listarClientes } from "@/db/queries/tickets";
 import { listarUsuarios } from "@/db/queries/users";
 import { COR_PRIORIDADE, ROTULO_PRIORIDADE } from "@/domain";
@@ -16,6 +17,7 @@ import { formatarDataHora } from "@/lib/datas";
 import { Comentarios } from "./Comentarios";
 import { FormTask } from "./FormTask";
 import { Historico } from "./Historico";
+import { SeletorEtiquetas } from "./SeletorEtiquetas";
 
 export const dynamic = "force-dynamic";
 
@@ -27,17 +29,29 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
   const task = await buscarTaskPorCodigo(n);
   if (!task) notFound();
 
-  const [status, tipos, usuarios, clientes, comentarios, historico, nomes, coluna] =
-    await Promise.all([
-      listarStatus(true),
-      listarTipos(true),
-      listarUsuarios(true),
-      listarClientes(),
-      listarComentarios(task.id),
-      listarHistorico(task.id),
-      dicionarioDeNomes(),
-      buscarColuna(task.columnId),
-    ]);
+  const [
+    status,
+    tipos,
+    usuarios,
+    clientes,
+    comentarios,
+    historico,
+    nomes,
+    coluna,
+    etiquetas,
+    minhasEtiquetas,
+  ] = await Promise.all([
+    listarStatus(true),
+    listarTipos(true),
+    listarUsuarios(true),
+    listarClientes(),
+    listarComentarios(task.id),
+    listarHistorico(task.id),
+    dicionarioDeNomes(),
+    buscarColuna(task.columnId),
+    listarEtiquetas(true),
+    etiquetasDaTask(task.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-5">
@@ -75,6 +89,13 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="grid gap-4">
           <Painel titulo="Rotina">
+            <div className="mb-3 border-b border-linha pb-3">
+              <SeletorEtiquetas
+                taskId={task.id}
+                disponiveis={etiquetas}
+                atuais={minhasEtiquetas}
+              />
+            </div>
             <FormTask
               task={task}
               status={status}

@@ -1,0 +1,1 @@
+ALTER TABLE `clients` ADD `email` varchar(160);
