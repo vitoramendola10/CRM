@@ -125,11 +125,17 @@ export const ROTULO_EVENTO: Record<EventoNotificacao, string> = {
 // por isso vivem aqui e nao no CSS.
 // ------------------------------------------------------------------
 
+/**
+ * Prioridade e enum fixo, entao a cor aponta para a variavel do tema em vez de
+ * um hex - assim ela acompanha claro/escuro sem cada tela saber disso.
+ * O mesmo NAO vale para COR_CATEGORIA e COR_NEUTRA_COLUNA logo abaixo: aquelas
+ * sao gravadas no banco pelo seed e precisam ser um valor de verdade.
+ */
 export const COR_PRIORIDADE: Record<Prioridade, string> = {
-  baixa: "#8a9a8e",
-  media: "#c99a3f",
-  alta: "#d9752b",
-  urgente: "#c0392b",
+  baixa: "var(--prio-baixa)",
+  media: "var(--prio-media)",
+  alta: "var(--prio-alta)",
+  urgente: "var(--prio-urgente)",
 };
 
 export const COR_CATEGORIA: Record<CategoriaStatus, string> = {
@@ -139,14 +145,14 @@ export const COR_CATEGORIA: Record<CategoriaStatus, string> = {
   cancelado: "#9b5b52",
 };
 
-/** Situacao de chamado e enum fixo, entao a cor vive aqui e nao no banco. */
+/** Situacao de chamado e enum fixo: cor do tema, nunca do banco. */
 export const COR_SITUACAO_TICKET: Record<SituacaoTicket, string> = {
-  aberto: "#8d8577",
-  em_atendimento: "#3f6ea8",
-  aguardando_cliente: "#c99a3f",
-  aguardando_dev: "#8a5426",
-  resolvido: "#4a7c59",
-  cancelado: "#9b5b52",
+  aberto: "var(--cat-aberto)",
+  em_atendimento: "var(--cat-andamento)",
+  aguardando_cliente: "var(--prio-media)",
+  aguardando_dev: "var(--acento)",
+  resolvido: "var(--cat-concluido)",
+  cancelado: "var(--cat-cancelado)",
 };
 
 export const COR_NEUTRA_COLUNA = "#8d8577";

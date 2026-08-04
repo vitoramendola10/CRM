@@ -122,5 +122,5 @@ export function agruparCards(
 
 /** A coluna do que falta preencher fica sempre por ultimo, com cor de alerta suave. */
 function grupoSem(nome: string, cards: TaskCard[]): GrupoDoQuadro {
-  return { id: `sem:${nome}`, nome, cor: "#c99a3f", wipLimit: null, cards };
+  return { id: `sem:${nome}`, nome, cor: "var(--prio-media)", wipLimit: null, cards };
 }

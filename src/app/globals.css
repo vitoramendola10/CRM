@@ -1,49 +1,118 @@
 @import "tailwindcss";
 
 /**
- * Identidade visual do CRM. Base de papel quente, tinta escura quente,
- * cor so onde significa alguma coisa. Tema unico e claro - sem dark mode.
+ * Identidade visual do CRM, em dois temas.
+ *
+ * As cores vivem como variaveis em :root e sao trocadas pelo atributo
+ * data-tema no <html>. O @theme abaixo e `inline` de proposito: assim as
+ * utilitarias do Tailwind apontam para a variavel em vez de gravar o valor,
+ * e trocar o tema nao exige recompilar nem duplicar classe nenhuma.
+ *
+ * Cor continua tendo significado: prioridade, categoria de status, alerta de
+ * card envelhecido. Nada de cor decorativa.
  */
 
-@theme {
+:root {
+  color-scheme: dark;
+
+  /* Superficies. Escuro neutro levemente quente, nao azulado. */
+  --papel: #16181d;
+  --papel-alto: #1e2128;
+  --papel-baixo: #121419;
+
+  --tinta: #e9e6e1;
+  --tinta-media: #a6a19a;
+  --tinta-fraca: #6e6a64;
+
+  --linha: #2a2e36;
+  --linha-forte: #3b404b;
+
+  /* Unico acento da interface: foco, link, selecao. */
+  --acento: #e0924e;
+
+  --prio-baixa: #7ea88f;
+  --prio-media: #d9a441;
+  --prio-alta: #e08850;
+  --prio-urgente: #e06052;
+
+  --cat-aberto: #9a938a;
+  --cat-andamento: #5b91d4;
+  --cat-concluido: #5fa87a;
+  --cat-cancelado: #c47268;
+
+  --sombra-hover: 0 1px 2px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.28);
+  --sombra-arrasto: 0 10px 26px rgb(0 0 0 / 0.5);
+  /* Versao em filter, para o card arrastado projetar sombra na forma dele
+     e nao na do retangulo. */
+  --arrasto-filtro: drop-shadow(0 10px 22px rgb(0 0 0 / 0.55));
+}
+
+:root[data-tema="claro"] {
+  color-scheme: light;
+
+  /* Papel quente: nunca branco puro, nunca cinza azulado. */
+  --papel: #f3ece0;
+  --papel-alto: #fbf8f2;
+  --papel-baixo: #e9e0d0;
+
+  --tinta: #211d17;
+  --tinta-media: #5b5245;
+  --tinta-fraca: #8b8173;
+
+  --linha: #ded4c2;
+  --linha-forte: #c9bda7;
+
+  --acento: #8a5426;
+
+  --prio-baixa: #8a9a8e;
+  --prio-media: #c99a3f;
+  --prio-alta: #d9752b;
+  --prio-urgente: #c0392b;
+
+  --cat-aberto: #8d8577;
+  --cat-andamento: #3f6ea8;
+  --cat-concluido: #4a7c59;
+  --cat-cancelado: #9b5b52;
+
+  --sombra-hover: 0 1px 2px rgb(33 29 23 / 0.08), 0 2px 6px rgb(33 29 23 / 0.06);
+  --sombra-arrasto: 0 10px 26px rgb(33 29 23 / 0.22);
+  --arrasto-filtro: drop-shadow(0 8px 18px rgb(33 29 23 / 0.3));
+}
+
+@theme inline {
   --font-sans: var(--fonte-texto), ui-sans-serif, sans-serif;
   --font-mono: var(--fonte-numero), ui-monospace, monospace;
 
-  /* Papel: nunca branco puro, nunca cinza azulado. */
-  --color-papel: #f3ece0;
-  --color-papel-alto: #fbf8f2;
-  --color-papel-baixo: #e9e0d0;
+  --color-papel: var(--papel);
+  --color-papel-alto: var(--papel-alto);
+  --color-papel-baixo: var(--papel-baixo);
 
-  /* Tinta quente. */
-  --color-tinta: #211d17;
-  --color-tinta-media: #5b5245;
-  --color-tinta-fraca: #8b8173;
+  --color-tinta: var(--tinta);
+  --color-tinta-media: var(--tinta-media);
+  --color-tinta-fraca: var(--tinta-fraca);
 
-  --color-linha: #ded4c2;
-  --color-linha-forte: #c9bda7;
+  --color-linha: var(--linha);
+  --color-linha-forte: var(--linha-forte);
 
-  /* Unico acento da interface: foco, link, selecao. */
-  --color-acento: #8a5426;
+  --color-acento: var(--acento);
 
-  /* Semanticas. Espelham COR_PRIORIDADE / COR_CATEGORIA de src/domain. */
-  --color-prio-baixa: #8a9a8e;
-  --color-prio-media: #c99a3f;
-  --color-prio-alta: #d9752b;
-  --color-prio-urgente: #c0392b;
+  --color-prio-baixa: var(--prio-baixa);
+  --color-prio-media: var(--prio-media);
+  --color-prio-alta: var(--prio-alta);
+  --color-prio-urgente: var(--prio-urgente);
 
-  --color-cat-aberto: #8d8577;
-  --color-cat-andamento: #3f6ea8;
-  --color-cat-concluido: #4a7c59;
-  --color-cat-cancelado: #9b5b52;
+  --color-cat-aberto: var(--cat-aberto);
+  --color-cat-andamento: var(--cat-andamento);
+  --color-cat-concluido: var(--cat-concluido);
+  --color-cat-cancelado: var(--cat-cancelado);
 
   /* Bordas discretas: 2-3px, nunca mais. */
   --radius-xs: 2px;
   --radius-sm: 3px;
   --radius-md: 3px;
 
-  /* Sombra so no hover e no que esta sendo arrastado. */
-  --shadow-hover: 0 1px 2px rgb(33 29 23 / 0.08), 0 2px 6px rgb(33 29 23 / 0.06);
-  --shadow-arrasto: 0 4px 14px rgb(33 29 23 / 0.16);
+  --shadow-hover: var(--sombra-hover);
+  --shadow-arrasto: var(--sombra-arrasto);
 }
 
 @layer base {
@@ -53,8 +122,8 @@
   }
 
   body {
-    background-color: var(--color-papel);
-    color: var(--color-tinta);
+    background-color: var(--papel);
+    color: var(--tinta);
     font-family: var(--font-sans);
     /* Tela de trabalho: densa, mas legivel o dia inteiro. */
     font-size: 14px;
@@ -70,12 +139,19 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-acento);
+    outline: 2px solid var(--acento);
     outline-offset: 1px;
   }
 
   ::selection {
-    background-color: color-mix(in srgb, var(--color-acento) 22%, transparent);
+    background-color: color-mix(in srgb, var(--acento) 28%, transparent);
+  }
+
+  /* Barra de rolagem discreta, para o board largo nao ganhar uma faixa clara
+     atravessada no meio do tema escuro. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--linha-forte) transparent;
   }
 }
 
@@ -86,10 +162,13 @@
     transition-duration: 140ms;
     transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .transicao {
-    transition-duration: 0ms;
+  /**
+   * Cor vinda do banco (status, etiqueta, coluna) puxada na direcao do texto do
+   * tema. Os valores foram escolhidos para fundo claro; no escuro eles ficariam
+   * abafados, e um selo ilegivel some da tela. Uma expressao so resolve os dois.
+   */
+  .cor-legivel {
+    color: color-mix(in srgb, var(--cor-base) 68%, var(--tinta) 32%);
   }
 }

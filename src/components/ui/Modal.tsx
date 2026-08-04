@@ -43,7 +43,9 @@ export function Modal({
       onClick={(e) => {
         if (e.target === ref.current) aoFechar();
       }}
-      className={`m-auto w-[calc(100vw-2rem)] rounded-sm border border-linha-forte bg-papel p-0 text-tinta shadow-arrasto backdrop:bg-tinta/35 ${
+      // O veu e preto nos dois temas: `bg-tinta/35` viraria um veu claro no
+      // tema escuro, porque la a tinta e clara.
+      className={`m-auto w-[calc(100vw-2rem)] rounded-sm border border-linha-forte bg-papel p-0 text-tinta shadow-arrasto backdrop:bg-black/55 ${
         largura === "larga" ? "max-w-2xl" : "max-w-md"
       }`}
     >

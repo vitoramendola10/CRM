@@ -63,11 +63,13 @@ export function Card({
             <li
               key={e.id}
               title={e.nome}
-              className="rounded-xs px-1 text-[10px] leading-[14px]"
-              style={{
-                color: e.cor,
-                backgroundColor: `color-mix(in srgb, ${e.cor} 12%, transparent)`,
-              }}
+              className="cor-legivel rounded-xs px-1 text-[10px] leading-[14px]"
+              style={
+                {
+                  "--cor-base": e.cor,
+                  backgroundColor: `color-mix(in srgb, ${e.cor} 14%, transparent)`,
+                } as React.CSSProperties
+              }
             >
               {e.nome}
             </li>
@@ -79,8 +81,8 @@ export function Card({
         <Avatar nome={card.responsavel?.nome ?? null} tamanho={20} />
 
         <span
-          className="truncate text-[11px]"
-          style={{ color: card.status.cor }}
+          className="cor-legivel truncate text-[11px]"
+          style={{ "--cor-base": card.status.cor } as React.CSSProperties}
           title={card.status.nome}
         >
           {card.status.nome}

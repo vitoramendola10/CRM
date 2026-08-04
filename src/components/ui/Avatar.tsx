@@ -18,8 +18,10 @@ export function Avatar({ nome, tamanho = 22 }: { nome: string | null; tamanho?: 
   return (
     <span
       title={nome}
-      style={{ ...estilo, backgroundColor: corDoNome(nome) }}
-      className="num inline-flex shrink-0 items-center justify-center rounded-full font-medium text-papel-alto"
+      // Texto claro fixo, nao `text-papel-alto`: os tons abaixo sao escuros nos
+      // dois temas, entao no tema escuro a inicial sumiria dentro do circulo.
+      style={{ ...estilo, backgroundColor: corDoNome(nome), color: "#f2efea" }}
+      className="num inline-flex shrink-0 items-center justify-center rounded-full font-medium"
     >
       {iniciais(nome)}
     </span>

@@ -292,7 +292,7 @@ export function Quadro({
           style={{
             width: arrasto.largura,
             transform: `translate3d(${arrasto.x}px, ${arrasto.y}px, 0) rotate(1.5deg) scale(1.02)`,
-            filter: "drop-shadow(0 8px 18px rgb(33 29 23 / 0.28))",
+            filter: "var(--arrasto-filtro)",
           }}
         >
           <Card card={arrasto.card} arrastavel />
