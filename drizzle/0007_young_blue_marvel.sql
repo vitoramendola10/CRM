@@ -1,0 +1,1 @@
+ALTER TABLE `notification_rules` MODIFY COLUMN `evento` enum('task_criada','task_concluida','task_atribuida','task_comentada','ticket_aberto','ticket_mencionado') NOT NULL;

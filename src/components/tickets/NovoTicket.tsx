@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ClienteRapido, type ClienteCriado } from "@/components/clientes/ClienteRapido";
 import { Botao } from "@/components/ui/Botao";
-import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
+import { Campo, Selecao } from "@/components/ui/Campo";
 import { Modal } from "@/components/ui/Modal";
 import {
   CANAIS_TICKET,
@@ -14,6 +15,7 @@ import {
   type CanalTicket,
   type Cliente,
   type Prioridade,
+  type Usuario,
 } from "@/domain";
 import { chamar } from "@/lib/api";
 import type { CamposComErro } from "@/lib/rota";
@@ -27,7 +29,13 @@ const VAZIO = {
   prioridade: "media" as Prioridade,
 };
 
-export function NovoTicket({ clientes }: { clientes: Cliente[] }) {
+export function NovoTicket({
+  clientes,
+  usuarios,
+}: {
+  clientes: Cliente[];
+  usuarios: Usuario[];
+}) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [f, setF] = useState(VAZIO);
@@ -168,12 +176,14 @@ export function NovoTicket({ clientes }: { clientes: Cliente[] }) {
             </Selecao>
           </div>
 
-          <AreaTexto
+          <AreaTextoMencao
             rotulo="O que foi relatado"
             rows={5}
+            usuarios={usuarios.map((u) => u.username)}
+            dica="Cite alguem com @ para avisar."
             erro={campos.descricao}
             value={f.descricao}
-            onChange={(e) => setF({ ...f, descricao: e.target.value })}
+            aoMudar={(v) => setF({ ...f, descricao: v })}
           />
 
           {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}

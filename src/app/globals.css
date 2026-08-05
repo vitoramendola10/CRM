@@ -111,6 +111,19 @@
   --radius-sm: 3px;
   --radius-md: 3px;
 
+  /**
+   * Escala de texto com salto de verdade.
+   *
+   * Antes tudo vivia entre 11 e 17px: um titulo de pagina tinha praticamente o
+   * mesmo tamanho de um rotulo de campo, e sem contraste nada se destaca -
+   * que da no mesmo que nada ser importante. Os degraus abaixo sao grandes o
+   * bastante para a hierarquia se ler de longe, sem virar tela de marketing.
+   */
+  --text-pagina: 1.5rem; /* 24px - titulo de tela */
+  --text-secao: 0.95rem; /* 15px - titulo de bloco */
+  --text-corpo: 0.8125rem; /* 13px - o texto da ferramenta */
+  --text-etiqueta: 0.6875rem; /* 11px - rotulo em caixa alta */
+
   --shadow-hover: var(--sombra-hover);
   --shadow-arrasto: var(--sombra-arrasto);
 }
@@ -170,5 +183,28 @@
    */
   .cor-legivel {
     color: color-mix(in srgb, var(--cor-base) 68%, var(--tinta) 32%);
+  }
+
+  /**
+   * Grade de projeto, como papel milimetrado. E a unica textura do sistema, e
+   * so aparece na tela de entrada - onde ha area vazia de sobra e onde a
+   * identidade precisa dizer alguma coisa.
+   *
+   * Duas camadas de linhas de 1px em vez de gradiente de cor: combina com o
+   * tom de ferramenta e nao vira aquele degrade roxo de tela de login.
+   */
+  .grade {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--linha) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--linha) 55%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /** Titulo de tela. Um degrau acima de tudo, e so um por pagina. */
+  .titulo-pagina {
+    font-size: var(--text-pagina);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
   }
 }

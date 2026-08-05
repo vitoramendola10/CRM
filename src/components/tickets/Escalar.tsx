@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Botao } from "@/components/ui/Botao";
-import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
+import { Campo, Selecao } from "@/components/ui/Campo";
 import { Modal } from "@/components/ui/Modal";
 import {
   PRIORIDADES,
@@ -11,6 +12,7 @@ import {
   type Board,
   type Prioridade,
   type TaskType,
+  type Usuario,
 } from "@/domain";
 import { chamar } from "@/lib/api";
 import type { CamposComErro } from "@/lib/rota";
@@ -22,6 +24,7 @@ export function Escalar({
   prioridade,
   boards,
   tipos,
+  usuarios,
 }: {
   ticketId: number;
   assunto: string;
@@ -29,6 +32,7 @@ export function Escalar({
   prioridade: Prioridade;
   boards: Board[];
   tipos: TaskType[];
+  usuarios: Usuario[];
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -62,14 +66,32 @@ export function Escalar({
       prioridade: f.prioridade,
     });
 
-    setEnviando(false);
     if (!r.ok) {
+      setEnviando(false);
       setErro(r.erro);
       setCampos(r.campos ?? {});
       return;
     }
+
+    /**
+     * Fica no chamado, e nao vai para a rotina criada.
+     *
+     * Escalar e ENTREGAR: quem envia para o desenvolvimento terminou a parte
+     * dele e o chamado continua sendo dele - ele volta em "aguardando dev" e
+     * retorna ao suporte quando o dev entregar. Jogar o atendente dentro do
+     * board era tirar ele do lugar onde ainda tem trabalho (registrar o que
+     * falou com o cliente, anexar print) e largar numa tela que e do dev.
+     *
+     * Abrir um chamado novo e o caso contrario, e por isso continua navegando:
+     * ali o protocolo acabou de nascer e ainda falta detalhar tudo.
+     *
+     * O `refresh` e a confirmacao: o cabecalho passa a mostrar "Aguardando
+     * desenvolvimento" e o proprio botao vira "Ver rotina DEV-x", que e o
+     * caminho de um clique para quem QUISER ver o card.
+     */
     setAberto(false);
-    router.push(`/kanban/${r.dados.codigo}`);
+    setEnviando(false);
+    router.refresh();
   }
 
   return (
@@ -82,7 +104,7 @@ export function Escalar({
         aberto={aberto}
         aoFechar={() => setAberto(false)}
         titulo="Enviar para desenvolvimento"
-        descricao="Cria a rotina no board. O chamado continua aberto, aguardando o dev."
+        descricao="Cria a rotina no board e volta para o chamado, que continua com voce aguardando o dev."
         largura="larga"
         rodape={
           <>
@@ -154,21 +176,24 @@ export function Escalar({
             onChange={(e) => setF({ ...f, versaoSistema: e.target.value })}
           />
 
-          <AreaTexto
+          <AreaTextoMencao
             rotulo="Passos para reproduzir"
             rows={4}
+            usuarios={usuarios.map((u) => u.username)}
             dica="O que fazer, nesta ordem, para o problema aparecer. E o que mais economiza tempo do dev."
             erro={campos.passosRepro}
             value={f.passosRepro}
-            onChange={(e) => setF({ ...f, passosRepro: e.target.value })}
+            aoMudar={(v) => setF({ ...f, passosRepro: v })}
           />
 
-          <AreaTexto
+          <AreaTextoMencao
             rotulo="Descricao"
             rows={4}
+            usuarios={usuarios.map((u) => u.username)}
+            dica="Cite alguem com @ para avisar."
             erro={campos.descricao}
             value={f.descricao}
-            onChange={(e) => setF({ ...f, descricao: e.target.value })}
+            aoMudar={(v) => setF({ ...f, descricao: v })}
           />
 
           {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}

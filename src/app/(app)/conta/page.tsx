@@ -15,7 +15,7 @@ export default async function ContaPage() {
   const eu = await exigirSessao();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-5">
+    <main className="mx-auto max-w-3xl px-6 py-7">
       <Cabecalho titulo="Minha conta" descricao="Seus dados de acesso." />
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">

@@ -1,14 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
+import { primeiraColuna, statusPorCategoria } from "@/db/queries/config";
 import { emailsDosIds } from "@/db/queries/notifications";
+import { emailsPorUsernames } from "@/db/queries/users";
 import {
   atribuirResponsavel,
   atualizarTaskCampos,
   buscarTask,
+  codigoDaTask,
   inserirComentario,
+  inserirTask,
   registrarHistorico,
+  ultimoRankDaColuna,
 } from "@/db/queries/tasks";
-import type { AtualizarTaskInput, Task, UsuarioSessao } from "@/domain";
+import { extrairMencoes, mencoesNovas } from "@/domain";
+import type { AtualizarTaskInput, CriarTaskInput, Task, UsuarioSessao } from "@/domain";
+import { RANK_INICIAL, rankEntre } from "@/lib/rank";
 import { ErroDeNegocio } from "@/lib/rota";
 import { enfileirarEvento } from "./notificacoes";
 
@@ -52,6 +59,39 @@ export async function editarTask(
       })),
     );
 
+    /**
+     * Avisa quem passou a ser citado na descricao ou nos passos.
+     *
+     * So as citacoes NOVAS. Descricao e salva junto com o formulario inteiro,
+     * varias vezes ao longo do dia; avisar todos os citados a cada salvamento
+     * mandaria o mesmo e-mail cinco vezes para a mesma pessoa - e a pessoa
+     * pararia de ler.
+     */
+    const citados = [
+      ...mencoesNovas(atual.descricao, dados.descricao),
+      ...mencoesNovas(atual.passosRepro, dados.passosRepro),
+    ].filter((u) => u !== usuario.username.toLowerCase());
+
+    if (citados.length > 0) {
+      const emails = await emailsPorUsernames(tx, [...new Set(citados)]);
+      if (emails.length > 0) {
+        await enfileirarEvento(tx, {
+          evento: "task_comentada",
+          boardId: atual.boardId,
+          taskId: id,
+          ticketId: atual.ticketId,
+          emailsMencionados: emails,
+          contexto: {
+            codigo: atual.codigo,
+            titulo: dados.titulo,
+            protocolo: atual.ticketId,
+            autor: usuario.nome,
+            comentario: `${dados.descricao ?? ""}\n\n${dados.passosRepro ?? ""}`.trim().slice(0, 2000),
+          },
+        });
+      }
+    }
+
     if (novoResponsavel) {
       const [email] = await emailsDosIds(tx, [novoResponsavel]);
       await enfileirarEvento(tx, {
@@ -68,6 +108,89 @@ export async function editarTask(
         },
       });
     }
+  });
+}
+
+/**
+ * Cria rotina direto no board, sem chamado de origem.
+ *
+ * Mesmas regras da escalacao - primeira coluna, status da categoria "aberto",
+ * rank no fim da fila -, so que sem ticket. O que muda e a origem registrada no
+ * historico: "criada no board" e a informacao que, meses depois, separa
+ * trabalho interno do que veio de cliente.
+ */
+export async function novaTask(
+  dados: CriarTaskInput,
+  usuario: UsuarioSessao,
+): Promise<{ taskId: string; codigo: number }> {
+  return db.transaction(async (tx) => {
+    const coluna = await primeiraColuna(dados.boardId);
+    if (!coluna) {
+      throw new ErroDeNegocio(
+        "O board escolhido nao tem nenhuma etapa. Cadastre as etapas em Configuracao.",
+      );
+    }
+
+    const aberto = await statusPorCategoria("aberto");
+    if (!aberto) {
+      throw new ErroDeNegocio(
+        "Nao ha status ativo da categoria Aberto. Cadastre um em Configuracao > Status.",
+      );
+    }
+
+    const ultimo = await ultimoRankDaColuna(tx, coluna.id);
+    const taskId = randomUUID();
+
+    await inserirTask(tx, {
+      id: taskId,
+      boardId: dados.boardId,
+      columnId: coluna.id,
+      statusId: aberto.id,
+      typeId: dados.typeId,
+      titulo: dados.titulo,
+      descricao: dados.descricao,
+      prioridade: dados.prioridade,
+      assigneeId: dados.assigneeId,
+      criadoPor: usuario.id,
+      clientId: dados.clientId,
+      ticketId: null,
+      estimativaH: dados.estimativaH,
+      prazo: dados.prazo,
+      rank: ultimo === null ? RANK_INICIAL : rankEntre(ultimo, null),
+    });
+
+    const codigo = await codigoDaTask(tx, taskId);
+
+    await registrarHistorico(tx, [
+      {
+        taskId,
+        userId: usuario.id,
+        campo: "origem",
+        valorAntigo: null,
+        valorNovo: "Criada no board",
+      },
+    ]);
+
+    await enfileirarEvento(tx, {
+      evento: "task_criada",
+      boardId: dados.boardId,
+      taskId,
+      ticketId: null,
+      emailResponsavel: null,
+      contexto: {
+        codigo,
+        titulo: dados.titulo,
+        // Sem chamado: `{{protocolo}}` vira string vazia no template, e a linha
+        // some sozinha do e-mail em vez de sair "Chamado de origem: #".
+        protocolo: null,
+        prioridade: dados.prioridade,
+        etapa: coluna.nome,
+        solicitante: null,
+        autor: usuario.nome,
+      },
+    });
+
+    return { taskId, codigo };
   });
 }
 
@@ -111,14 +234,58 @@ export async function assumirTask(id: string, usuario: UsuarioSessao): Promise<v
   });
 }
 
+/**
+ * Comentario, e o aviso de quem foi citado com @.
+ *
+ * Antes o comentario so gravava a linha: o dev escrevia "@vitor, qual versao o
+ * cliente usa?" e a pergunta ficava esperando alguem abrir aquela rotina por
+ * acaso. Agora o texto e lido, os nomes viram destinatarios e o outbox cuida.
+ *
+ * Tudo numa transacao com o insert - se a fila falhar, o comentario tambem nao
+ * entra, e a pessoa reescreve. O contrario seria pior: comentario gravado com
+ * a promessa de aviso que nunca saiu.
+ */
 export async function comentar(
   taskId: string,
   corpo: string,
   usuario: UsuarioSessao,
 ): Promise<string> {
-  if (!(await buscarTask(taskId))) throw new ErroDeNegocio("Esta rotina nao existe mais.", 404);
+  const task = await buscarTask(taskId);
+  if (!task) throw new ErroDeNegocio("Esta rotina nao existe mais.", 404);
+
   const id = randomUUID();
-  await inserirComentario(id, taskId, usuario.id, corpo);
+
+  await db.transaction(async (tx) => {
+    await inserirComentario(id, taskId, usuario.id, corpo, tx);
+
+    const citados = extrairMencoes(corpo);
+    if (citados.length === 0) return;
+
+    // Citar a si mesmo nao gera e-mail: a pessoa acabou de escrever o texto.
+    const emails = await emailsPorUsernames(
+      tx,
+      citados.filter((u) => u !== usuario.username.toLowerCase()),
+    );
+    if (emails.length === 0) return;
+
+    await enfileirarEvento(tx, {
+      evento: "task_comentada",
+      boardId: task.boardId,
+      taskId,
+      ticketId: task.ticketId,
+      emailsMencionados: emails,
+      contexto: {
+        codigo: task.codigo,
+        titulo: task.titulo,
+        protocolo: task.ticketId,
+        autor: usuario.nome,
+        // O comentario inteiro no e-mail: quem foi citado precisa saber do que
+        // se trata sem ter de abrir o sistema so para ler duas linhas.
+        comentario: corpo.slice(0, 2000),
+      },
+    });
+  });
+
   return id;
 }
 

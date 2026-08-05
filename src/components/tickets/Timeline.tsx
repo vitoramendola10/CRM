@@ -7,21 +7,35 @@ import { Botao } from "@/components/ui/Botao";
 import {
   ROTULO_SITUACAO_TICKET,
   SITUACOES_TICKET,
+  type Resposta,
   type SituacaoTicket,
   type TicketMessage,
+  type Usuario,
 } from "@/domain";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
+import { ComCitacoes } from "@/components/ui/ComCitacoes";
 import { chamar } from "@/lib/api";
 import { formatarDataHora } from "@/lib/datas";
+import { preencher, type Contexto } from "@/lib/template";
 
 export function Timeline({
   ticketId,
   situacao,
   mensagens,
+  respostas,
+  usuarios,
+  contexto,
 }: {
   ticketId: number;
   situacao: SituacaoTicket;
   mensagens: (TicketMessage & { autor: string | null })[];
+  respostas: Resposta[];
+  /** Para citar com @ no registro e realcar quem foi citado. */
+  usuarios: Usuario[];
+  /** Dados do chamado para trocar os `{{campo}}` da resposta pronta. */
+  contexto: Contexto;
 }) {
+  const nomesValidos = new Set(usuarios.map((u) => u.username.toLowerCase()));
   const router = useRouter();
   const [corpo, setCorpo] = useState("");
   const [interno, setInterno] = useState(true);
@@ -29,6 +43,20 @@ export function Timeline({
   const [novaSituacao, setNovaSituacao] = useState<SituacaoTicket | "">("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  /**
+   * Aplica a resposta pronta na caixa. Substitui o texto em vez de emendar:
+   * emendar geraria uma colcha de duas respostas quando alguem clica na errada,
+   * e o desfazer natural aqui e clicar na outra.
+   */
+  function aplicar(r: Resposta) {
+    setCorpo(preencher(r.corpo, contexto));
+    setInterno(r.interno);
+    // A situacao da resposta so entra se ela nao for a situacao atual - o select
+    // de "e passar para" nem oferece a atual, e mandar a mesma seria um no-op
+    // que ainda assim escreveria uma linha no historico.
+    setNovaSituacao(r.situacao !== null && r.situacao !== situacao ? r.situacao : "");
+  }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -77,7 +105,9 @@ export function Timeline({
                     </span>
                   )}
                 </p>
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{m.corpo}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                  <ComCitacoes texto={m.corpo} validos={nomesValidos} />
+                </p>
               </div>
             </li>
           ))}
@@ -85,12 +115,34 @@ export function Timeline({
       )}
 
       <form onSubmit={enviar} className="grid gap-2 border-t border-linha pt-3">
-        <textarea
+        {/* Preenche a caixa em vez de enviar direto: a resposta pronta e um
+            ponto de partida, e quase sempre falta uma linha do caso especifico.
+            Enviar no clique tiraria a chance de ler o que vai para o cliente. */}
+        {respostas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-[11px] uppercase tracking-[0.08em] text-tinta-fraca">
+              Respostas
+            </span>
+            {respostas.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                title={r.situacao ? `Preenche o texto e passa para ${ROTULO_SITUACAO_TICKET[r.situacao]}` : "Preenche o texto"}
+                onClick={() => aplicar(r)}
+                className="transicao rounded-sm border border-linha-forte px-2 py-0.5 text-[12px] text-tinta-media hover:bg-papel-baixo hover:text-tinta"
+              >
+                {r.nome}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <AreaTextoMencao
           rows={3}
+          usuarios={usuarios.map((u) => u.username)}
           value={corpo}
-          onChange={(e) => setCorpo(e.target.value)}
-          placeholder="Registrar no atendimento"
-          className="transicao w-full resize-y rounded-sm border border-linha-forte bg-papel-alto px-2.5 py-1.5 text-[13px] leading-relaxed placeholder:text-tinta-fraca hover:border-tinta-fraca"
+          aoMudar={setCorpo}
+          placeholder="Registrar no atendimento. Use @ para citar alguem."
         />
 
         {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}

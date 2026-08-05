@@ -16,6 +16,7 @@ import {
   listarHistoricoTicket,
   listarMensagens,
 } from "@/db/queries/tickets";
+import { listarRespostas } from "@/db/queries/respostas";
 import { listarUsuarios } from "@/db/queries/users";
 import {
   COR_PRIORIDADE,
@@ -38,21 +39,23 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   const ticket = await buscarTicket(n);
   if (!ticket) notFound();
 
-  const [mensagens, clientes, usuarios, boards, tipos, anexos, historico, eu] = await Promise.all([
-    listarMensagens(ticket.id),
-    listarClientes(),
-    listarUsuarios(true),
-    listarBoards(),
-    listarTipos(true),
-    anexosDoTicket(ticket.id),
-    listarHistoricoTicket(ticket.id),
-    exigirSessao(),
-  ]);
+  const [mensagens, clientes, usuarios, boards, tipos, anexos, historico, eu, respostas] =
+    await Promise.all([
+      listarMensagens(ticket.id),
+      listarClientes(),
+      listarUsuarios(true),
+      listarBoards(),
+      listarTipos(true),
+      anexosDoTicket(ticket.id),
+      listarHistoricoTicket(ticket.id),
+      exigirSessao(),
+      listarRespostas(true),
+    ]);
 
   const boardsDev = boards.filter((b) => b.tipo === "dev" && b.ativo);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-5">
+    <main className="mx-auto max-w-5xl px-6 py-7">
       <header className="mb-4 border-b border-linha-forte pb-3">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <Link href="/atendimentos" className="text-[12px] text-tinta-fraca hover:text-acento">
@@ -74,9 +77,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[17px] font-semibold leading-snug tracking-tight">
-              {ticket.assunto}
-            </h1>
+            <h1 className="titulo-pagina">{ticket.assunto}</h1>
             <p className="num mt-0.5 text-[11px] text-tinta-fraca">
               Aberto em {formatarDataHora(ticket.abertoEm)}
               {ticket.atendente ? ` - ${ticket.atendente}` : " - sem atendente"}
@@ -93,6 +94,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
                 prioridade={ticket.prioridade}
                 boards={boardsDev}
                 tipos={tipos}
+                usuarios={usuarios}
               />
             )
           ) : (
@@ -120,7 +122,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
 
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="grid gap-4">
-          <Painel titulo="Atendimento">
+          <Painel titulo="Atendimento" variante="principal">
             <FormTicket ticket={ticket} clientes={clientes} usuarios={usuarios} />
           </Painel>
 
@@ -140,6 +142,15 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               ticketId={ticket.id}
               situacao={ticket.situacao}
               mensagens={mensagens}
+              respostas={respostas}
+              usuarios={usuarios}
+              contexto={{
+                protocolo: ticket.id,
+                assunto: ticket.assunto,
+                cliente: ticket.cliente,
+                solicitante: ticket.solicitante,
+                atendente: eu.nome,
+              }}
             />
           </Painel>
 

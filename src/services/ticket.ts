@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@/db/client";
+import { db, type Tx } from "@/db/client";
 import {
   abrirTicket,
   atualizarAtendente,
@@ -12,10 +12,12 @@ import {
   type RegistroDeHistorico,
   type TicketDaLista,
 } from "@/db/queries/tickets";
-import { buscarUsuario } from "@/db/queries/users";
+import { buscarUsuario, emailsPorUsernames } from "@/db/queries/users";
 import {
   ROTULO_PRIORIDADE,
   ROTULO_SITUACAO_TICKET,
+  extrairMencoes,
+  mencoesNovas,
   situacaoEhFechada,
   type AbrirTicketInput,
   type AtualizarTicketInput,
@@ -73,6 +75,47 @@ export async function editarTicket(
   await db.transaction(async (tx) => {
     await atualizarTicket(id, dados, tx);
     await registrarHistoricoTicket(tx, id, usuario.id, mudancas);
+    // Na descricao so entram as citacoes NOVAS: o formulario e salvo varias
+    // vezes, e reavisar quem ja estava citado vira e-mail repetido.
+    await avisarCitados(tx, antes, usuario, "na descricao do chamado", dados.descricao, antes.descricao);
+  });
+}
+
+/**
+ * Avisa quem foi citado com @ num texto do chamado.
+ *
+ * `anterior` null = o texto e novo (uma mensagem), entao todas as citacoes
+ * valem. Com `anterior`, so as que apareceram agora - e o que impede o mesmo
+ * e-mail sair a cada salvamento de um campo que se edita muito.
+ */
+async function avisarCitados(
+  tx: Tx,
+  ticket: TicketDaLista,
+  usuario: UsuarioSessao,
+  onde: string,
+  texto: string | null,
+  anterior: string | null,
+): Promise<void> {
+  const citados = (anterior === null ? extrairMencoes(texto ?? "") : mencoesNovas(anterior, texto))
+    // Citar a si mesmo nao gera e-mail: a pessoa acabou de escrever o texto.
+    .filter((u) => u !== usuario.username.toLowerCase());
+  if (citados.length === 0) return;
+
+  const emails = await emailsPorUsernames(tx, citados);
+  if (emails.length === 0) return;
+
+  await enfileirarEvento(tx, {
+    evento: "ticket_mencionado",
+    boardId: null,
+    ticketId: ticket.id,
+    emailsMencionados: emails,
+    contexto: {
+      protocolo: ticket.id,
+      assunto: ticket.assunto,
+      autor: usuario.nome,
+      onde,
+      trecho: (texto ?? "").slice(0, 2000),
+    },
   });
 }
 
@@ -143,6 +186,7 @@ export async function registrarMensagem(
   const id = randomUUID();
   await db.transaction(async (tx) => {
     await inserirMensagem(id, ticketId, usuario.id, dados.corpo, dados.interno, tx);
+    await avisarCitados(tx, antes, usuario, "no registro do atendimento", dados.corpo, null);
     if (muda) {
       await atualizarSituacao(tx, ticketId, nova);
       await registrarHistoricoTicket(

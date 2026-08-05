@@ -35,7 +35,17 @@ interface Barra {
   atrasada: boolean;
 }
 
-export function Gantt({ cards }: { cards: TaskCard[] }) {
+/** Altura fixa da linha. E o que permite desenhar as setas por cima em SVG. */
+const LINHA_PX = 32;
+
+export function Gantt({
+  cards,
+  arestas,
+}: {
+  cards: TaskCard[];
+  /** `taskId depende de dependeDeId` - a seta vai do segundo para o primeiro. */
+  arestas: { taskId: string; dependeDeId: string }[];
+}) {
   const [escala, setEscala] = useState<number>(18); // px por dia
   const hoje = soData(new Date());
 
@@ -83,7 +93,39 @@ export function Gantt({ cards }: { cards: TaskCard[] }) {
   const larguraPx = totalDias * escala;
 
   const dias = Array.from({ length: totalDias }, (_, i) => de + i * DIA_MS);
-  const posicao = (t: number) => (Math.round((t - de) / DIA_MS) * escala);
+  const posicao = (t: number) => Math.round((t - de) / DIA_MS) * escala;
+
+  /**
+   * Setas de dependencia.
+   *
+   * Gantt sem dependencia e uma lista com barras coloridas: o que faz o grafico
+   * valer e ver que uma rotina nao pode comecar antes da outra terminar. So
+   * entram as arestas cujas DUAS pontas estao desenhadas - depender de rotina
+   * sem data nenhuma nao tem como virar linha, e inventar posicao seria mentir.
+   *
+   * A seta fica VERMELHA quando a dependencia termina depois do inicio de quem
+   * espera: isso e um conflito de cronograma, e e a unica coisa que o grafico
+   * consegue apontar sozinho.
+   */
+  const linhaDe = new Map(barras.map((b, i) => [b.card.id, i]));
+  const setas = arestas.flatMap((a) => {
+    const iAlvo = linhaDe.get(a.taskId);
+    const iOrigem = linhaDe.get(a.dependeDeId);
+    if (iAlvo === undefined || iOrigem === undefined) return [];
+
+    const origem = barras[iOrigem]!;
+    const alvo = barras[iAlvo]!;
+    return [
+      {
+        chave: `${a.dependeDeId}-${a.taskId}`,
+        x1: posicao(origem.fim) + escala,
+        y1: iOrigem * LINHA_PX + LINHA_PX / 2,
+        x2: posicao(alvo.inicio),
+        y2: iAlvo * LINHA_PX + LINHA_PX / 2,
+        conflito: origem.fim > alvo.inicio,
+      },
+    ];
+  });
 
   return (
     <>
@@ -140,8 +182,44 @@ export function Gantt({ cards }: { cards: TaskCard[] }) {
             </div>
           </div>
 
-          {/* Linhas */}
-          <ul>
+          {/* Linhas. `relative` para o SVG das setas se posicionar por cima. */}
+          <ul className="relative">
+            {setas.length > 0 && (
+              <svg
+                aria-hidden
+                className="pointer-events-none absolute z-10"
+                style={{ left: 260, top: 0, width: larguraPx, height: barras.length * LINHA_PX }}
+              >
+                <defs>
+                  <marker
+                    id="seta-dep"
+                    viewBox="0 0 8 8"
+                    refX="7"
+                    refY="4"
+                    markerWidth="5"
+                    markerHeight="5"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L8,4 L0,8 z" fill="currentColor" />
+                  </marker>
+                </defs>
+                {/* Cotovelo em vez de reta: a diagonal cruzaria as barras do
+                    meio e viraria emaranhado assim que houvesse tres setas. */}
+                {setas.map((s) => (
+                  <path
+                    key={s.chave}
+                    d={`M ${s.x1} ${s.y1} H ${Math.max(s.x1 + 6, s.x2 - 10)} V ${s.y2} H ${s.x2}`}
+                    fill="none"
+                    strokeWidth={1.5}
+                    strokeDasharray={s.conflito ? undefined : "3 3"}
+                    markerEnd="url(#seta-dep)"
+                    className={s.conflito ? "text-prio-urgente" : "text-tinta-fraca"}
+                    stroke="currentColor"
+                  />
+                ))}
+              </svg>
+            )}
+
             {barras.map(({ card, inicio, fim, estimado, atrasada }) => {
               const esquerda = posicao(inicio);
               // Minimo de 1 dia para uma rotina que comeca e vence no mesmo dia
@@ -150,7 +228,14 @@ export function Gantt({ cards }: { cards: TaskCard[] }) {
               const cor = COR_PRIORIDADE[card.prioridade];
 
               return (
-                <li key={card.id} className="flex border-b border-linha last:border-0">
+                // Altura fixa: e dela que o SVG das setas tira o Y de cada
+                // linha. Deixar a altura seguir o conteudo desalinharia as
+                // setas no dia em que um titulo quebrasse em duas linhas.
+                <li
+                  key={card.id}
+                  style={{ height: LINHA_PX }}
+                  className="flex border-b border-linha last:border-0"
+                >
                   <div className="flex w-[260px] shrink-0 items-center gap-2 border-r border-linha px-2 py-1.5">
                     <Avatar nome={card.responsavel?.nome ?? null} tamanho={18} />
                     <Link

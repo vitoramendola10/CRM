@@ -37,6 +37,12 @@ function orfas(cards: TaskCard[]): number {
   return cards.filter((c) => c.responsavel === null).length;
 }
 
+/** Arredonda na exibicao: "12.5h" ajuda, "12.499999999h" nao. */
+function horas(cards: TaskCard[]): number {
+  const total = cards.reduce((n, c) => n + (c.estimativaH ?? 0), 0);
+  return Math.round(total * 10) / 10;
+}
+
 function Indicador({ alerta = false }: { alerta?: boolean }) {
   const cor = alerta ? "bg-prio-alta" : "bg-acento";
   return (
@@ -295,6 +301,18 @@ export function Quadro({
                   {/* Trabalho sem dono, por etapa. Cinco orfaos no Backlog e
                       uma fila; um orfao em Homologacao e alguem que largou algo
                       no meio - o mesmo numero total esconde os dois casos. */}
+                  {/* Soma da estimativa da etapa. E o que faz o campo do
+                      formulario deixar de ser um numero que ninguem le: com ele
+                      da para ver que a coluna tem 60h de trabalho parado. */}
+                  {horas(lista) > 0 && (
+                    <span
+                      title={`${horas(lista)}h estimadas nesta etapa`}
+                      className="num text-[11px] text-tinta-fraca"
+                    >
+                      {horas(lista)}h
+                    </span>
+                  )}
+
                   {orfas(lista) > 0 && (
                     <span
                       title={`${orfas(lista)} sem responsavel nesta etapa`}

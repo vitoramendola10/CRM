@@ -21,8 +21,10 @@ export type EventoNotificacao =
   | "task_criada"
   | "task_concluida"
   | "task_atribuida"
-  | "ticket_aberto";
-export type DestinoNotificacao = "papel" | "usuarios" | "responsavel";
+  | "task_comentada"
+  | "ticket_aberto"
+  | "ticket_mencionado";
+export type DestinoNotificacao = "papel" | "usuarios" | "responsavel" | "mencionados";
 export type SituacaoOutbox = "pendente" | "enviado" | "erro";
 
 export interface Usuario {
@@ -113,6 +115,17 @@ export interface Anexo {
    * A rotina nao pode apagar o que nao e dela.
    */
   herdado: boolean;
+}
+
+/** Resposta pronta do atendimento. `situacao` null = so preenche o texto. */
+export interface Resposta {
+  id: string;
+  nome: string;
+  corpo: string;
+  situacao: SituacaoTicket | null;
+  interno: boolean;
+  ordem: number;
+  ativo: boolean;
 }
 
 export interface Ticket {
@@ -225,6 +238,10 @@ export interface TaskCard {
   etiquetas: Etiqueta[];
   columnId: string;
   rank: string;
+  /** Horas previstas. Sem isto o campo do formulario nao ia a lugar nenhum. */
+  estimativaH: number | null;
+  /** Dependencias ainda nao entregues. > 0 = a rotina nao pode andar. */
+  bloqueios: number;
 }
 
 /**

@@ -17,6 +17,8 @@ import {
   ROTULO_PRIORIDADE,
 } from "@/domain";
 import { diasCorridos, formatarData, humanizarDias } from "@/lib/datas";
+import { horasPorCliente } from "@/db/queries/worklog";
+import { formatarMinutos } from "@/lib/horas";
 import { leadTimePorColuna } from "@/services/relatorio";
 
 export const dynamic = "force-dynamic";
@@ -25,26 +27,33 @@ export default async function DashboardPage() {
   const board = await boardPadrao();
   if (!board) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-5">
+      <main className="mx-auto max-w-6xl px-6 py-7">
         <Cabecalho titulo="Dashboard" />
         <Vazio titulo="Nenhum board cadastrado." detalhe="Rode o seed com npm run db:seed." />
       </main>
     );
   }
 
-  const [r, s, leadTime, backlog, aguardando] = await Promise.all([
+  // 30 dias corridos: a janela que o resto do dashboard ja usa.
+  const desde = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+
+  const [r, s, leadTime, backlog, aguardando, horas] = await Promise.all([
     resumo(board.id),
     resumoSuporte(DIAS_CHAMADO_PARADO),
     leadTimePorColuna(board.id),
     backlogPorCliente(board.id),
     chamadosAguardandoDev(),
+    horasPorCliente(desde),
   ]);
+
+  const totalHoras = horas.reduce((n, h) => n + h.minutos, 0) || 1;
+  const maiorHora = Math.max(1, ...horas.map((h) => h.minutos));
 
   const colunas = await nomesDeColunas(leadTime.map((l) => l.columnId));
   const piorLead = Math.max(1, ...leadTime.map((l) => l.medianaDias));
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-5">
+    <main className="mx-auto max-w-6xl px-6 py-7">
       <Cabecalho titulo="Dashboard" descricao={`Board ${board.nome}.`} />
 
       <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tinta-fraca">
@@ -133,6 +142,41 @@ export default async function DashboardPage() {
           <p className="mt-2 border-t border-linha pt-2 text-[11px] text-tinta-fraca">
             Mediana, nao media: um card esquecido distorce a media da etapa inteira.
           </p>
+        </Painel>
+
+        <Painel titulo="Horas apontadas por cliente (30 dias)" contagem={horas.length}>
+          {horas.length === 0 ? (
+            <p className="text-[13px] text-tinta-fraca">
+              Ninguem apontou horas ainda. O apontamento fica na tela da rotina, em Horas.
+            </p>
+          ) : (
+            <ul className="grid gap-1">
+              {horas.map((h) => (
+                <li key={h.cliente} className="grid gap-0.5">
+                  <span className="flex items-baseline justify-between gap-2 text-[13px]">
+                    <span className="min-w-0 truncate">{h.cliente}</span>
+                    <span className="num shrink-0 text-tinta-media">
+                      {formatarMinutos(h.minutos)}
+                      <span className="ml-1.5 text-[11px] text-tinta-fraca">
+                        {Math.round((h.minutos / totalHoras) * 100)}%
+                      </span>
+                    </span>
+                  </span>
+                  {/* Barra proporcional ao maior, e nao ao total: com dez
+                      clientes todas as barras ficariam invisiveis. */}
+                  <span aria-hidden className="h-1 rounded-full bg-papel-baixo">
+                    <span
+                      className="block h-1 rounded-full bg-acento/60"
+                      style={{ width: `${Math.max(2, (h.minutos / maiorHora) * 100)}%` }}
+                    />
+                  </span>
+                  <span className="num text-[11px] text-tinta-fraca">
+                    {h.rotinas} rotina{h.rotinas === 1 ? "" : "s"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Painel>
 
         <Painel titulo="Backlog por cliente" contagem={backlog.length}>

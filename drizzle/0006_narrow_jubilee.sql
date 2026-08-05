@@ -1,0 +1,2 @@
+ALTER TABLE `notification_rules` MODIFY COLUMN `evento` enum('task_criada','task_concluida','task_atribuida','task_comentada','ticket_aberto') NOT NULL;--> statement-breakpoint
+ALTER TABLE `notification_rules` MODIFY COLUMN `destino_tipo` enum('papel','usuarios','responsavel','mencionados') NOT NULL;

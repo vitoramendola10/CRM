@@ -1,4 +1,11 @@
-/** Titulo de area. Mantem a mesma altura e ritmo em toda tela interna. */
+/**
+ * Titulo de area.
+ *
+ * O titulo era 17px - quase o mesmo tamanho do texto do conteudo, o que
+ * achatava a pagina inteira. Agora e um degrau de verdade acima, com o mesmo
+ * traco de acento que marca o item ativo da barra lateral: repetir um sinal
+ * e o que faz virar sistema em vez de colecao de telas parecidas.
+ */
 export function Cabecalho({
   titulo,
   descricao,
@@ -9,12 +16,13 @@ export function Cabecalho({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-linha-forte pb-3">
-      <div>
-        <h1 className="text-[17px] font-semibold tracking-tight">{titulo}</h1>
-        {descricao && <p className="mt-0.5 text-[13px] text-tinta-media">{descricao}</p>}
+    <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-linha-forte pb-4">
+      <div className="relative pl-3">
+        <span aria-hidden className="absolute inset-y-0.5 left-0 w-[3px] rounded-full bg-acento" />
+        <h1 className="titulo-pagina">{titulo}</h1>
+        {descricao && <p className="mt-1 text-[13px] text-tinta-media">{descricao}</p>}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
   );
 }
@@ -28,9 +36,9 @@ export function Vazio({
   detalhe?: string | undefined;
 }) {
   return (
-    <div className="rounded-sm border border-dashed border-linha-forte px-4 py-8 text-center">
+    <div className="rounded-sm border border-dashed border-linha-forte px-4 py-10 text-center">
       <p className="text-[13px] font-medium">{titulo}</p>
-      {detalhe && <p className="mt-0.5 text-[13px] text-tinta-fraca">{detalhe}</p>}
+      {detalhe && <p className="mt-1 text-[13px] text-tinta-fraca">{detalhe}</p>}
     </div>
   );
 }

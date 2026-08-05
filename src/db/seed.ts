@@ -83,6 +83,26 @@ const REGRAS = [
       "Entregue por: {{responsavel}}",
   },
   {
+    evento: "task_comentada",
+    destinoTipo: "mencionados",
+    destinoPapel: null,
+    assuntoTpl: "{{autor}} citou voce em DEV-{{codigo}}",
+    corpoTpl:
+      "{{autor}} escreveu na rotina DEV-{{codigo}} - {{titulo}}:\n\n" +
+      "{{comentario}}\n\n" +
+      "Chamado de origem: #{{protocolo}}",
+  },
+  {
+    evento: "ticket_mencionado",
+    destinoTipo: "mencionados",
+    destinoPapel: null,
+    assuntoTpl: "{{autor}} citou voce no chamado #{{protocolo}}",
+    corpoTpl:
+      "{{autor}} citou voce {{onde}}:\n\n" +
+      "#{{protocolo}} - {{assunto}}\n\n" +
+      "{{trecho}}",
+  },
+  {
     evento: "ticket_aberto",
     destinoTipo: "papel",
     destinoPapel: "suporte",

@@ -6,6 +6,7 @@ import { NovoTicket } from "@/components/tickets/NovoTicket";
 import { SituacaoRapida } from "@/components/tickets/SituacaoRapida";
 import { Cabecalho, Vazio } from "@/components/ui/Cabecalho";
 import { contarPorSituacao, listarClientes, listarTickets } from "@/db/queries/tickets";
+import { listarUsuarios } from "@/db/queries/users";
 import {
   COR_PRIORIDADE,
   DIAS_CHAMADO_PARADO,
@@ -43,18 +44,19 @@ export default async function AtendimentosPage({
     busca: termo,
   });
 
-  const [lista, contagem, clientes, eu] = await Promise.all([
+  const [lista, contagem, clientes, eu, usuarios] = await Promise.all([
     listarTickets(filtro, paginaDaUrl(pagina)),
     contarPorSituacao(),
     listarClientes(),
     exigirSessao(),
+    listarUsuarios(true),
   ]);
   const tickets = lista.itens;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-5">
+    <main className="mx-auto max-w-6xl px-6 py-7">
       <Cabecalho titulo="Atendimentos" descricao="O que o suporte registrou.">
-        <NovoTicket clientes={clientes} />
+        <NovoTicket clientes={clientes} usuarios={usuarios} />
       </Cabecalho>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -91,15 +93,30 @@ export default async function AtendimentosPage({
             const esquecido = parado !== null && parado > DIAS_CHAMADO_PARADO;
 
             return (
-              <li key={t.id} className="relative">
+              /*
+                O link cobre a linha inteira como camada invisivel, e os
+                controles ficam ACIMA dele. A versao anterior reservava uma
+                largura fixa dentro do <a> para os controles absolutos caberem -
+                e quando o botao "Assumir" aparecia (so em chamado que nao e
+                seu) ele passava por cima da coluna de "parado ha N dias".
+                Assim nao ha largura magica para acertar.
+              */
+              <li
+                key={t.id}
+                className={`transicao relative flex items-center gap-3 rounded-sm border bg-papel-alto py-2 pl-3 pr-2.5 hover:shadow-hover ${
+                  esquecido
+                    ? "border-prio-alta/45 hover:border-prio-alta"
+                    : "border-linha hover:border-linha-forte"
+                }`}
+              >
                 <Link
                   href={`/atendimentos/${t.id}`}
-                  className={`transicao flex items-center gap-3 rounded-sm border bg-papel-alto py-2 pl-3 pr-2.5 hover:shadow-hover ${
-                    esquecido
-                      ? "border-prio-alta/45 hover:border-prio-alta"
-                      : "border-linha hover:border-linha-forte"
-                  }`}
-                >
+                  aria-label={`Chamado ${t.id}: ${t.assunto}`}
+                  className="absolute inset-0 rounded-sm"
+                />
+
+                {/* `pointer-events-none` para o clique atravessar ate o link. */}
+                <div className="pointer-events-none flex min-w-0 flex-1 items-center gap-3">
                   <span
                     aria-hidden
                     title={ROTULO_PRIORIDADE[t.prioridade]}
@@ -134,16 +151,11 @@ export default async function AtendimentosPage({
                       ? formatarData(t.fechadoEm)
                       : `parado ${humanizarDias(parado)}`}
                   </span>
+                </div>
 
-                  {/* Ocupa o lugar dos controles: o Link nao pode envolver
-                      botao nem select, senao clicar neles navega. */}
-                  <span className="shrink-0" style={{ width: 208 }} aria-hidden />
-                </Link>
-
-                {/* Fora do <a>, sobreposto. Um <button> dentro de um <a> e HTML
-                    invalido, e o navegador reparte a arvore de um jeito que
-                    quebra os dois. */}
-                <span className="absolute inset-y-0 right-2.5 flex items-center gap-1.5">
+                {/* Acima do link, e por isso clicaveis. Botao dentro de <a> e
+                    HTML invalido; aqui eles sao irmaos, nao filhos. */}
+                <span className="relative flex shrink-0 items-center gap-1.5">
                   <Assumir ticketId={t.id} atendenteId={t.atendenteId} euId={eu.id} />
                   <SituacaoRapida ticketId={t.id} situacao={t.situacao} formato="select" />
                 </span>

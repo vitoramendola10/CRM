@@ -1,5 +1,5 @@
-import { and, asc, eq, gt, lt, or } from "drizzle-orm";
-import { db } from "../client";
+import { and, asc, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { db, type Tx } from "../client";
 import { sessions, users } from "../schema";
 import type { Papel, Usuario, UsuarioSessao } from "@/domain";
 
@@ -63,6 +63,20 @@ export async function listarEmailsPorIds(ids: string[]): Promise<string[]> {
     .select({ email: users.email })
     .from(users)
     .where(and(or(...ids.map((id) => eq(users.id, id))), eq(users.ativo, true)));
+  return linhas.map((l) => l.email).filter((e): e is string => e !== null && e.length > 0);
+}
+
+/**
+ * E-mails de quem foi citado com @. Nome que nao existe simplesmente nao
+ * aparece no resultado - errar o @ nao pode ser erro de formulario, ou escrever
+ * um comentario viraria um exercicio de acertar a grafia.
+ */
+export async function emailsPorUsernames(tx: Tx, usernames: string[]): Promise<string[]> {
+  if (usernames.length === 0) return [];
+  const linhas = await tx
+    .select({ email: users.email })
+    .from(users)
+    .where(and(inArray(users.username, usernames), eq(users.ativo, true)));
   return linhas.map((l) => l.email).filter((e): e is string => e !== null && e.length > 0);
 }
 

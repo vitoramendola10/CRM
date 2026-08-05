@@ -1,6 +1,7 @@
 import type { Tx } from "@/db/client";
 import { emailsDoPapel, emailsDosIds, enfileirar, regrasDoEvento } from "@/db/queries/notifications";
 import type { EventoNotificacao } from "@/domain";
+import { preencher, type Contexto } from "@/lib/template";
 
 /**
  * Resolve as regras de um evento e grava o resultado no outbox, SEMPRE dentro da
@@ -8,8 +9,7 @@ import type { EventoNotificacao } from "@/domain";
  * a notificacao tem de sumir junto - e um e-mail enviado nao volta atras.
  */
 
-/** O que os templates podem interpolar. Chave ausente vira string vazia. */
-export type Contexto = Record<string, string | number | null>;
+export type { Contexto };
 
 export interface Alvo {
   evento: EventoNotificacao;
@@ -18,15 +18,9 @@ export interface Alvo {
   ticketId?: number | null;
   /** Para regras com destino "responsavel": quem e o responsavel deste caso. */
   emailResponsavel?: string | null;
+  /** Para regras com destino "mencionados": quem foi citado no texto. */
+  emailsMencionados?: string[];
   contexto: Contexto;
-}
-
-/** `{{campo}}` no template. Sem motor de template: e um replace e so. */
-export function preencher(tpl: string, ctx: Contexto): string {
-  return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, chave: string) => {
-    const v = ctx[chave];
-    return v === null || v === undefined ? "" : String(v);
-  });
 }
 
 export async function enfileirarEvento(tx: Tx, alvo: Alvo): Promise<number> {
@@ -45,6 +39,11 @@ export async function enfileirarEvento(tx: Tx, alvo: Alvo): Promise<number> {
         break;
       case "responsavel":
         destinatarios = alvo.emailResponsavel ? [alvo.emailResponsavel] : [];
+        break;
+      case "mencionados":
+        // Resolvidos por quem chamou, a partir do texto - a regra so diz que o
+        // destinatario sai do conteudo, nao quem ele e.
+        destinatarios = alvo.emailsMencionados ?? [];
         break;
     }
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BotaoTema } from "@/components/BotaoTema";
+import { Marca } from "@/components/Marca";
 import { Avatar } from "@/components/ui/Avatar";
 import { NAVEGACAO, ROTAS, ROTULO_PAPEL, podeAcessar, type Rota, type UsuarioSessao } from "@/domain";
 import { chamar } from "@/lib/api";
@@ -39,14 +40,26 @@ export function Navegacao({
 
   return (
     <aside className="flex shrink-0 flex-col border-b border-linha bg-papel-alto md:h-dvh md:w-52 md:border-b-0 md:border-r">
-      <div className="flex items-center gap-2 px-3 py-3 md:py-4">
-        <span
-          aria-hidden
-          className="num grid size-6 place-items-center rounded-sm bg-acento text-[11px] font-semibold text-papel"
+      <div className="px-3 py-3.5 md:py-5">
+        <Marca />
+      </div>
+
+      {/* Busca acima das areas, e nao entre elas: ela nao e um lugar do
+          sistema, e o atalho para qualquer lugar dele. */}
+      <div className="px-2 pb-2">
+        <Link
+          href={ROTAS.busca}
+          className={`transicao flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-[12px] ${
+            pathname === ROTAS.busca
+              ? "border-linha-forte bg-papel-baixo text-tinta"
+              : "border-linha text-tinta-fraca hover:border-linha-forte hover:text-tinta"
+          }`}
         >
-          C
-        </span>
-        <span className="text-[13px] font-semibold tracking-tight">CRM</span>
+          <span aria-hidden className="text-[13px] leading-none">
+            ⌕
+          </span>
+          Buscar
+        </Link>
       </div>
 
       <nav className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-x-visible md:pb-0">

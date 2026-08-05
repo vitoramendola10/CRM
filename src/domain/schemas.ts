@@ -249,6 +249,39 @@ export const ticketMessageSchema = z.object({
 });
 export type TicketMessageInput = z.infer<typeof ticketMessageSchema>;
 
+/**
+ * Apontamento de horas. Os minutos ja chegam convertidos - quem traduz "1h30"
+ * e a tela, para a pessoa VER o que vai gravar antes de gravar.
+ */
+export const apontamentoSchema = z.object({
+  minutos: z.coerce
+    .number()
+    .int()
+    .positive("Informe um tempo maior que zero")
+    .max(1440, "Um apontamento nao pode passar de 24h - divida em dias"),
+  /** O dia trabalhado, que nao e necessariamente o dia em que se apontou. */
+  data: z.iso.date("Data invalida"),
+  nota: textoOpcional(200),
+});
+export type ApontamentoInput = z.infer<typeof apontamentoSchema>;
+
+/** Dependencia informada pelo codigo visivel (DEV-7), nao pelo uuid. */
+export const dependenciaSchema = z.object({
+  codigo: z.coerce.number().int().positive("Informe o numero da rotina, como em DEV-7"),
+});
+export type DependenciaInput = z.infer<typeof dependenciaSchema>;
+
+export const respostaSchema = z.object({
+  nome: texto(80),
+  corpo: texto(5000),
+  /** null = aplicar so o texto e deixar a decisao com quem atende. */
+  situacao: z.enum(SITUACOES_TICKET).nullable().default(null),
+  interno: z.boolean().default(true),
+  ordem: z.coerce.number().int().min(0).max(999).default(0),
+  ativo: z.boolean().default(true),
+});
+export type RespostaInput = z.infer<typeof respostaSchema>;
+
 /** O caminho de um clique: so a situacao, sem arrastar o formulario inteiro. */
 export const trocarSituacaoSchema = z.object({
   situacao: z.enum(SITUACOES_TICKET),
@@ -268,6 +301,31 @@ export type FiltroTicketsInput = z.infer<typeof filtroTicketsSchema>;
 // ------------------------------------------------------------------
 
 /** O que o modal "Enviar para desenvolvimento" manda. */
+/**
+ * Rotina que nasce no board, sem chamado.
+ *
+ * Bug que o dev achou sozinho, atualizacao de biblioteca, refactor, divida
+ * tecnica: trabalho que existe e nao veio de cliente nenhum. Sem isto a unica
+ * forma de por qualquer coisa no board era escalar um chamado - e quem
+ * precisasse registrar trabalho interno teria de abrir um chamado falso,
+ * sujando o indicador de atendimento com o que nunca foi atendimento.
+ *
+ * O cliente e opcional e continua existindo: nem todo trabalho para um cliente
+ * comeca por telefonema.
+ */
+export const criarTaskSchema = z.object({
+  boardId: uuid,
+  typeId: uuid.nullable().default(null),
+  clientId: uuid.nullable().default(null),
+  assigneeId: uuid.nullable().default(null),
+  titulo: texto(200),
+  descricao: textoOpcional(5000),
+  prioridade: z.enum(PRIORIDADES),
+  estimativaH: z.coerce.number().nonnegative().max(9999).nullable().default(null),
+  prazo: z.iso.date("Data invalida").nullable().default(null),
+});
+export type CriarTaskInput = z.infer<typeof criarTaskSchema>;
+
 export const escalarTicketSchema = z.object({
   ticketId: z.coerce.number().int().positive(),
   boardId: uuid,

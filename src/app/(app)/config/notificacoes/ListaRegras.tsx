@@ -28,13 +28,17 @@ const VARIAVEIS: Record<EventoNotificacao, string[]> = {
   task_criada: ["codigo", "titulo", "protocolo", "prioridade", "etapa", "solicitante", "autor"],
   task_concluida: ["codigo", "titulo", "protocolo", "etapa", "responsavel"],
   task_atribuida: ["codigo", "titulo", "protocolo", "responsavel"],
+  task_comentada: ["codigo", "titulo", "protocolo", "autor", "comentario"],
   ticket_aberto: ["protocolo", "assunto", "solicitante", "prioridade", "atendente"],
+  ticket_mencionado: ["protocolo", "assunto", "autor", "onde", "trecho"],
 };
 
 const ROTULO_DESTINO: Record<DestinoNotificacao, string> = {
   papel: "Todos de um papel",
   usuarios: "Pessoas escolhidas",
   responsavel: "Quem e responsavel pelo caso",
+  // Nao ha quem escolher aqui: os nomes saem do texto que acabou de ser escrito.
+  mencionados: "Quem foi citado com @ no texto",
 };
 
 type Rascunho = {

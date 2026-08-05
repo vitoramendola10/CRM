@@ -3,22 +3,33 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
 import { Botao } from "@/components/ui/Botao";
-import type { TaskComment } from "@/domain";
+import { ComCitacoes } from "@/components/ui/ComCitacoes";
+import { extrairMencoes, type TaskComment, type Usuario } from "@/domain";
 import { chamar } from "@/lib/api";
 import { formatarDataHora } from "@/lib/datas";
 
 export function Comentarios({
   taskId,
   comentarios,
+  usuarios,
 }: {
   taskId: string;
   comentarios: (TaskComment & { autor: string | null })[];
+  /** Para citar com @ e para saber quais citacoes existem de verdade. */
+  usuarios: Usuario[];
 }) {
+  const nomesValidos = new Set(usuarios.map((u) => u.username.toLowerCase()));
   const router = useRouter();
   const [corpo, setCorpo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // Separa o que sera avisado do que a pessoa digitou errado.
+  const mencionados = extrairMencoes(corpo);
+  const citados = mencionados.filter((u) => nomesValidos.has(u));
+  const errados = mencionados.filter((u) => !nomesValidos.has(u));
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -55,7 +66,9 @@ export function Comentarios({
                     {formatarDataHora(c.createdAt)}
                   </span>
                 </p>
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{c.corpo}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">
+                  <ComCitacoes texto={c.corpo} validos={nomesValidos} />
+                </p>
               </div>
             </li>
           ))}
@@ -63,23 +76,41 @@ export function Comentarios({
       )}
 
       <form onSubmit={enviar} className="grid gap-2 border-t border-linha pt-3">
-        <textarea
+        <AreaTextoMencao
           rows={3}
+          usuarios={usuarios.map((u) => u.username)}
           value={corpo}
-          onChange={(e) => setCorpo(e.target.value)}
-          placeholder="Escreva um comentario"
-          className="transicao w-full resize-y rounded-sm border border-linha-forte bg-papel-alto px-2.5 py-1.5 text-[13px] leading-relaxed placeholder:text-tinta-fraca hover:border-tinta-fraca"
+          aoMudar={setCorpo}
+          placeholder="Escreva um comentario. Use @ para citar alguem."
         />
         {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}
-        <Botao
-          type="submit"
-          variante="primario"
-          disabled={enviando || corpo.trim() === ""}
-          className="justify-self-start"
-        >
-          {enviando ? "Enviando..." : "Comentar"}
-        </Botao>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Botao type="submit" variante="primario" disabled={enviando || corpo.trim() === ""}>
+            {enviando ? "Enviando..." : "Comentar"}
+          </Botao>
+
+          {/* Diz quem VAI ser avisado, e nao apenas que da para citar. Uma
+              citacao com o nome errado passa despercebida - e a pessoa fica
+              esperando resposta de alguem que nunca soube da pergunta. */}
+          {citados.length > 0 ? (
+            <span className="text-[12px] text-tinta-media">
+              avisa {citados.map((u) => `@${u}`).join(", ")}
+            </span>
+          ) : (
+            <span className="text-[12px] text-tinta-fraca">
+              Cite alguem com @ para avisar: {usuarios.map((u) => `@${u.username}`).join(", ")}
+            </span>
+          )}
+
+          {errados.length > 0 && (
+            <span className="text-[12px] text-prio-alta">
+              {errados.map((u) => `@${u}`).join(", ")} nao existe e nao sera avisado
+            </span>
+          )}
+        </div>
       </form>
     </div>
   );
 }
+

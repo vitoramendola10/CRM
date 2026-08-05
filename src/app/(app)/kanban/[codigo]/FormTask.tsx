@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Botao } from "@/components/ui/Botao";
-import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
+import { Campo, Selecao } from "@/components/ui/Campo";
 import {
   PRIORIDADES,
   ROTULO_PRIORIDADE,
@@ -48,6 +49,9 @@ export function FormTask({
   const [campos, setCampos] = useState<CamposComErro>({});
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+
+  // So os nomes: o campo de mencao nao precisa do resto do cadastro.
+  const nomesDeUsuario = usuarios.map((u) => u.username);
 
   function set<K extends keyof typeof f>(k: K, v: (typeof f)[K]) {
     setF({ ...f, [k]: v });
@@ -94,21 +98,24 @@ export function FormTask({
         onChange={(e) => set("titulo", e.target.value)}
       />
 
-      <AreaTexto
+      <AreaTextoMencao
         rotulo="Descricao"
         rows={4}
+        usuarios={nomesDeUsuario}
+        dica="Cite alguem com @ para avisar."
         erro={campos.descricao}
         value={f.descricao}
-        onChange={(e) => set("descricao", e.target.value)}
+        aoMudar={(v) => set("descricao", v)}
       />
 
-      <AreaTexto
+      <AreaTextoMencao
         rotulo="Passos para reproduzir"
         rows={4}
+        usuarios={nomesDeUsuario}
         dica="O que fazer, nesta ordem, para o problema aparecer."
         erro={campos.passosRepro}
         value={f.passosRepro}
-        onChange={(e) => set("passosRepro", e.target.value)}
+        aoMudar={(v) => set("passosRepro", v)}
       />
 
       <div className="grid gap-3 sm:grid-cols-2">

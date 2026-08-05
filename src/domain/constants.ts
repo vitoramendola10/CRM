@@ -72,14 +72,61 @@ export const EVENTOS_NOTIFICACAO = [
   "task_criada",
   "task_concluida",
   "task_atribuida",
+  "task_comentada",
   "ticket_aberto",
+  "ticket_mencionado",
 ] as const satisfies readonly EventoNotificacao[];
 
 export const DESTINOS_NOTIFICACAO = [
   "papel",
   "usuarios",
   "responsavel",
+  /**
+   * Quem foi citado com @ no texto. Diferente dos outros: o destinatario nao
+   * esta na regra, esta no CONTEUDO do que acabou de ser escrito - por isso a
+   * regra so diz "avise quem foi citado" e quem resolve os nomes e o service.
+   */
+  "mencionados",
 ] as const satisfies readonly DestinoNotificacao[];
+
+/**
+ * Quem passou a ser citado de um texto para o outro.
+ *
+ * Existe por causa de campo que se edita muitas vezes: descricao e passos sao
+ * salvos junto com o formulario inteiro, e avisar todos os citados a cada
+ * salvamento mandaria cinco e-mails da MESMA citacao para a mesma pessoa. Aqui
+ * so entra quem ainda nao estava la.
+ */
+export function mencoesNovas(antes: string | null, depois: string | null): string[] {
+  const antigas = new Set(extrairMencoes(antes ?? ""));
+  return extrairMencoes(depois ?? "").filter((u) => !antigas.has(u));
+}
+
+/**
+ * Quem foi citado num texto. Aceita o `@` colado no nome de usuario, do jeito
+ * que se escreve: "@vitor, qual versao?" - a virgula nao entra no nome.
+ *
+ * Devolve em minusculas e sem repetir: citar a mesma pessoa duas vezes no
+ * mesmo comentario nao manda dois e-mails.
+ */
+export function extrairMencoes(texto: string): string[] {
+  const achados = texto.match(/@[a-zA-Z0-9._-]+/g) ?? [];
+  const nomes = achados
+    .map((m) =>
+      m
+        .slice(1)
+        /**
+         * Tira ponto, hifen e underline do FIM. Eles valem dentro do nome
+         * ("ana.paula", "jose-luis"), mas "@ana." no fim da frase e a pessoa
+         * ana seguida de um ponto final - e ninguem escreve "@ana ." so para
+         * o sistema entender.
+         */
+        .replace(/[._-]+$/, "")
+        .toLowerCase(),
+    )
+    .filter((n) => n !== "");
+  return [...new Set(nomes)];
+}
 
 export const SITUACOES_OUTBOX = [
   "pendente",
@@ -132,7 +179,9 @@ export const ROTULO_EVENTO: Record<EventoNotificacao, string> = {
   task_criada: "Rotina criada",
   task_concluida: "Rotina concluida",
   task_atribuida: "Rotina atribuida",
+  task_comentada: "Alguem citado num comentario",
   ticket_aberto: "Chamado aberto",
+  ticket_mencionado: "Alguem citado num chamado",
 };
 
 // ------------------------------------------------------------------
@@ -184,6 +233,7 @@ export const ROTAS = {
   dashboard: "/dashboard",
   config: "/config",
   conta: "/conta",
+  busca: "/busca",
 } as const;
 
 /**
@@ -211,6 +261,9 @@ export const PAPEIS_POR_ROTA: Record<string, readonly Papel[]> = {
   // esta aqui, entao sem esta linha a permissao de /conta seria um silencio, e
   // nao uma decisao. Vale para /api/conta/* pelo espelhamento do middleware.
   [ROTAS.conta]: PAPEIS,
+  // A busca e aberta a todos, mas devolve so o que cada papel ja poderia ver:
+  // cliente e cadastro de configuracao e fica de fora para suporte e dev.
+  [ROTAS.busca]: PAPEIS,
 };
 
 export const AGRUPAMENTOS_KANBAN = [
@@ -251,6 +304,7 @@ export const ABAS_CONFIG = [
   { href: "/config/status", rotulo: "Status" },
   { href: "/config/tipos", rotulo: "Tipos de rotina" },
   { href: "/config/etiquetas", rotulo: "Etiquetas" },
+  { href: "/config/respostas", rotulo: "Respostas prontas" },
   { href: "/config/usuarios", rotulo: "Usuarios" },
   { href: "/config/notificacoes", rotulo: "Notificacoes" },
 ] as const;

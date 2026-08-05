@@ -197,6 +197,32 @@ export const tickets = mysqlTable(
 );
 
 /** Timeline do atendimento. interno = nao mostra pro cliente no futuro portal. */
+/**
+ * Resposta pronta do atendimento - o que Zoho e Zendesk chamam de canned reply.
+ *
+ * Guarda o texto E o que fazer depois dele: aplicar a resposta "vamos analisar
+ * e retornamos" e deixar o chamado em "aberto" e meio trabalho feito. Situacao
+ * nula = so preenche o texto e deixa a decisao com quem atende.
+ *
+ * O corpo aceita os mesmos `{{campo}}` dos templates de notificacao.
+ */
+export const cannedReplies = mysqlTable(
+  "canned_replies",
+  {
+    id: id(),
+    nome: varchar("nome", { length: 80 }).notNull(),
+    corpo: text("corpo").notNull(),
+    situacao: mysqlEnum("situacao", SITUACOES_TICKET),
+    /** Se a resposta nasce interna ou visivel ao cliente. */
+    interno: boolean("interno").notNull().default(true),
+    ordem: int("ordem").notNull().default(0),
+    ativo: boolean("ativo").notNull().default(true),
+    createdAt: criadoEm(),
+    updatedAt: atualizadoEm(),
+  },
+  (t) => [unique("uq_canned_replies_nome").on(t.nome)],
+);
+
 export const ticketMessages = mysqlTable(
   "ticket_messages",
   {
@@ -380,6 +406,65 @@ export const attachments = mysqlTable(
   ],
 );
 
+/**
+ * Dependencia entre rotinas: `taskId` so pode andar depois que `dependeDeId`
+ * terminar. Bloqueia e bloqueada-por sao a MESMA aresta vista dos dois lados -
+ * guardar as duas direcoes daria duas fontes da verdade para o mesmo fato.
+ *
+ * A chave primaria composta ja impede duplicar o vinculo; o CHECK impede a
+ * rotina depender de si mesma. Ciclo mais longo (A->B->C->A) o banco nao tem
+ * como ver: quem barra e o service, andando pelo grafo antes de gravar.
+ */
+export const taskLinks = mysqlTable(
+  "task_links",
+  {
+    taskId: fk("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    dependeDeId: fk("depende_de_id")
+      .notNull()
+      .references((): AnyMySqlColumn => tasks.id, { onDelete: "cascade" }),
+    createdAt: criadoEm(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.dependeDeId] }),
+    // Para responder "o que esta esperando esta rotina" sem varrer a tabela.
+    index("idx_task_links_depende").on(t.dependeDeId),
+    check("ck_task_links_self", sql`${t.taskId} <> ${t.dependeDeId}`),
+  ],
+);
+
+/**
+ * Horas trabalhadas na rotina.
+ *
+ * `data` e o DIA em que se trabalhou, separado de `created_at`, que e quando se
+ * lembrou de apontar. Quem aponta a sexta na segunda-feira precisa que a hora
+ * caia na sexta - senao o relatorio por periodo mente.
+ *
+ * Em minutos e nao em horas decimais: "1h45" digitado vira 105, exato. Com
+ * decimal, 1,75 e 1,7 viram discussao sobre arredondamento no fim do mes.
+ */
+export const taskWorklog = mysqlTable(
+  "task_worklog",
+  {
+    id: id(),
+    taskId: fk("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    userId: fk("user_id").references(() => users.id),
+    minutos: int("minutos").notNull(),
+    data: date("data", { mode: "string" }).notNull(),
+    nota: varchar("nota", { length: 200 }),
+    createdAt: criadoEm(),
+  },
+  (t) => [
+    index("idx_task_worklog_task").on(t.taskId),
+    // O relatorio por periodo parte da data, nao da rotina.
+    index("idx_task_worklog_data").on(t.data),
+    check("ck_task_worklog_minutos", sql`${t.minutos} > 0 and ${t.minutos} <= 1440`),
+  ],
+);
+
 /** De onde saem lead time, cycle time e o "quem mexeu nisso". */
 export const taskHistory = mysqlTable(
   "task_history",
@@ -542,6 +627,20 @@ export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
 export const taskHistoryRelations = relations(taskHistory, ({ one }) => ({
   task: one(tasks, { fields: [taskHistory.taskId], references: [tasks.id] }),
   autor: one(users, { fields: [taskHistory.userId], references: [users.id] }),
+}));
+
+export const taskLinksRelations = relations(taskLinks, ({ one }) => ({
+  task: one(tasks, { fields: [taskLinks.taskId], references: [tasks.id], relationName: "bloqueada" }),
+  dependeDe: one(tasks, {
+    fields: [taskLinks.dependeDeId],
+    references: [tasks.id],
+    relationName: "bloqueia",
+  }),
+}));
+
+export const taskWorklogRelations = relations(taskWorklog, ({ one }) => ({
+  task: one(tasks, { fields: [taskWorklog.taskId], references: [tasks.id] }),
+  autor: one(users, { fields: [taskWorklog.userId], references: [users.id] }),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({

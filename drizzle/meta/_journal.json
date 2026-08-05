@@ -36,6 +36,27 @@
       "when": 1785891072428,
       "tag": "0004_lovely_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1785929297781,
+      "tag": "0005_grey_post",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1785946886446,
+      "tag": "0006_narrow_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1785951136840,
+      "tag": "0007_young_blue_marvel",
+      "breakpoints": true
     }
   ]
 }

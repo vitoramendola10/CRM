@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ClienteRapido, type ClienteCriado } from "@/components/clientes/ClienteRapido";
 import { Botao } from "@/components/ui/Botao";
-import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
+import { AreaTextoMencao } from "@/components/ui/AreaTextoMencao";
+import { Campo, Selecao } from "@/components/ui/Campo";
 import {
   CANAIS_TICKET,
   PRIORIDADES,
@@ -169,12 +170,14 @@ export function FormTicket({
         </Selecao>
       </div>
 
-      <AreaTexto
+      <AreaTextoMencao
         rotulo="O que foi relatado"
         rows={5}
+        usuarios={usuarios.map((u) => u.username)}
+        dica="Cite alguem com @ para avisar."
         erro={campos.descricao}
         value={f.descricao}
-        onChange={(e) => set("descricao", e.target.value)}
+        aoMudar={(v) => set("descricao", v)}
       />
 
       {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}

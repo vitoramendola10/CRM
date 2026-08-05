@@ -11,6 +11,7 @@ import {
   users,
 } from "../schema";
 import type { Task, TaskCard, TaskComment, TaskHistory } from "@/domain";
+import { bloqueiosDoBoard } from "./dependencias";
 import { etiquetasDeVariasTasks } from "./etiquetas";
 
 /**
@@ -41,6 +42,7 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
       prioridade: tasks.prioridade,
       columnId: tasks.columnId,
       rank: tasks.rank,
+      estimativaH: tasks.estimativaH,
     })
     .from(tasks)
     .innerJoin(taskStatuses, eq(taskStatuses.id, tasks.statusId))
@@ -53,9 +55,13 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
     )
     .orderBy(asc(tasks.columnId), asc(tasks.rank));
 
-  // Uma segunda query para as etiquetas, nao um join: um join N:N multiplicaria
-  // as linhas dos cards e o agrupamento teria de ser desfeito depois.
-  const etiquetas = await etiquetasDeVariasTasks(linhas.map((l) => l.id));
+  // Consultas separadas, nao joins: etiqueta e dependencia sao N:N e um join
+  // multiplicaria as linhas dos cards, obrigando a desfazer o agrupamento
+  // depois. Duas consultas de mapa saem mais baratas e muito mais legiveis.
+  const [etiquetas, bloqueios] = await Promise.all([
+    etiquetasDeVariasTasks(linhas.map((l) => l.id)),
+    bloqueiosDoBoard(boardId),
+  ]);
 
   return linhas.map((l) => ({
     id: l.id,
@@ -72,6 +78,8 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
     etiquetas: etiquetas[l.id] ?? [],
     columnId: l.columnId,
     rank: l.rank,
+    estimativaH: l.estimativaH,
+    bloqueios: bloqueios[l.id] ?? 0,
   }));
 }
 
@@ -249,8 +257,9 @@ export async function inserirComentario(
   taskId: string,
   userId: string,
   corpo: string,
+  tx?: Tx,
 ): Promise<void> {
-  await db.insert(taskComments).values({ id, taskId, userId, corpo });
+  await (tx ?? db).insert(taskComments).values({ id, taskId, userId, corpo });
 }
 
 /** Recebe `tx`: a edicao grava historico e pode enfileirar e-mail junto. */

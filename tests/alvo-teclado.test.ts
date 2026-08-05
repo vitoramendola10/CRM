@@ -24,6 +24,8 @@ function card(id: string, columnId: string): TaskCard {
     prazo: null,
     prioridade: "media",
     etiquetas: [],
+    estimativaH: null,
+    bloqueios: 0,
     columnId,
     rank: "a",
   };

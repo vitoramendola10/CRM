@@ -34,6 +34,8 @@ function card(p: Partial<TaskCard> & { id: string; rank: string; columnId: strin
     prazo: null,
     prioridade: "media",
     etiquetas: [],
+    estimativaH: null,
+    bloqueios: 0,
     ...p,
   };
 }

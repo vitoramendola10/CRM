@@ -46,6 +46,17 @@ export function Card({
             <span title={`Chamado ${card.solicitacao}`}>#{card.solicitacao}</span>
           )}
         </span>
+
+        {/* Bloqueio antes de tudo: uma rotina travada nao deve ser puxada, e
+            descobrir isso so ao abrir o card e descobrir tarde demais. */}
+        {card.bloqueios > 0 && (
+          <span
+            title={`Espera ${card.bloqueios} rotina${card.bloqueios === 1 ? "" : "s"} que ainda nao foi entregue`}
+            className="num shrink-0 rounded-xs bg-prio-urgente/15 px-1 text-[10px] font-medium text-prio-urgente"
+          >
+            travada {card.bloqueios > 1 && `(${card.bloqueios})`}
+          </span>
+        )}
         {card.cliente && (
           <span className="ml-auto truncate text-[11px] text-tinta-fraca" title={card.cliente}>
             {card.cliente}
@@ -103,6 +114,15 @@ export function Card({
         >
           {card.status.nome}
         </span>
+
+        {card.estimativaH !== null && (
+          <span
+            title={`Estimativa de ${card.estimativaH}h`}
+            className="num shrink-0 text-[11px] text-tinta-fraca"
+          >
+            {card.estimativaH}h
+          </span>
+        )}
 
         <span
           className={`num ml-auto shrink-0 text-[11px] ${

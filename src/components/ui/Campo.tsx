@@ -1,4 +1,5 @@
-const CONTROLE =
+/** Exportado para o campo com mencao reusar a mesma aparencia. */
+export const CONTROLE =
   "transicao w-full rounded-sm border border-linha-forte bg-papel-alto px-2.5 text-[13px] " +
   "text-tinta placeholder:text-tinta-fraca hover:border-tinta-fraca " +
   "disabled:cursor-not-allowed disabled:bg-papel-baixo disabled:text-tinta-fraca";
