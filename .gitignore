@@ -9,5 +9,12 @@ next-env.d.ts
 .env.local
 .env*.local
 
+# Dump do banco: tem dado de cliente. Este repositorio e publico.
+backups/
+
+# Arquivos anexados aos chamados: print de tela de cliente, planilha, log.
+# Mesmo motivo, com mais razao ainda.
+anexos/
+
 .DS_Store
 Thumbs.db

@@ -8,8 +8,17 @@ import {
   registrarHistorico,
   travarTask,
 } from "@/db/queries/tasks";
-import { devolverAoSuporte, emailDoAtendente } from "@/db/queries/tickets";
-import { categoriaDaColuna, type MoverTaskInput, type UsuarioSessao } from "@/domain";
+import {
+  devolverAoSuporte,
+  emailDoAtendente,
+  registrarHistoricoTicket,
+} from "@/db/queries/tickets";
+import {
+  ROTULO_SITUACAO_TICKET,
+  categoriaDaColuna,
+  type MoverTaskInput,
+  type UsuarioSessao,
+} from "@/domain";
 import { agoraMysql } from "@/lib/datas";
 import { RANK_INICIAL, rankEntre, ranksDistribuidos } from "@/lib/rank";
 import { ErroDeNegocio } from "@/lib/rota";
@@ -79,7 +88,27 @@ export async function moverTask(dados: MoverTaskInput, usuario: UsuarioSessao): 
       });
 
       if (task.ticketId !== null) {
-        await devolverAoSuporte(tx, task.ticketId);
+        // So devolve o que ainda estava esperando o dev. O chamado que o
+        // atendente ja tinha encerrado fica como esta - reabri-lo sozinho aqui
+        // surpreenderia quem dava o assunto por resolvido.
+        const devolvido = await devolverAoSuporte(tx, task.ticketId);
+        if (devolvido) {
+          // Do lado do chamado, isto aparece como uma mudanca de situacao que
+          // ninguem fez a mao. Sem a linha no historico, some a explicacao.
+          await registrarHistoricoTicket(tx, task.ticketId, usuario.id, [
+            {
+              campo: "situacao",
+              valorAntigo: ROTULO_SITUACAO_TICKET.aguardando_dev,
+              valorNovo: ROTULO_SITUACAO_TICKET.em_atendimento,
+            },
+            {
+              campo: "dev_entregue",
+              valorAntigo: null,
+              valorNovo: `DEV-${task.codigo} em ${destino.nome}`,
+            },
+          ]);
+        }
+
         await enfileirarEvento(tx, {
           evento: "task_concluida",
           boardId: task.boardId,

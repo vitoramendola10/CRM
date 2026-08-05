@@ -11,9 +11,13 @@ export function FiltroSituacao({ contagem }: { contagem: Record<string, number> 
   const atual = params.get("situacao");
 
   function ir(situacao: string | null) {
+    // Parte dos parametros atuais, e nao de um objeto vazio: trocar de aba
+    // preserva o `busca` que ja estava aplicado.
     const p = new URLSearchParams(params.toString());
     if (situacao) p.set("situacao", situacao);
     else p.delete("situacao");
+    // A pagina, ao contrario, volta ao inicio: o resultado e outro conjunto.
+    p.delete("pagina");
     // A rota e literal; o typedRoutes so nao consegue provar a query string.
     router.push(`${ROTAS.atendimentos}${p.size > 0 ? `?${p}` : ""}` as Route);
   }
@@ -21,7 +25,7 @@ export function FiltroSituacao({ contagem }: { contagem: Record<string, number> 
   const total = Object.values(contagem).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="mb-3 flex flex-wrap gap-0.5">
+    <div className="flex flex-wrap gap-0.5">
       <Aba rotulo="Todos" n={total} ativo={atual === null} onClick={() => ir(null)} />
       {SITUACOES_TICKET.map((s) => (
         <Aba

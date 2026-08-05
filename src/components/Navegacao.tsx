@@ -5,14 +5,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BotaoTema } from "@/components/BotaoTema";
 import { Avatar } from "@/components/ui/Avatar";
-import { NAVEGACAO, ROTULO_PAPEL, podeAcessar, type Rota, type UsuarioSessao } from "@/domain";
+import { NAVEGACAO, ROTAS, ROTULO_PAPEL, podeAcessar, type Rota, type UsuarioSessao } from "@/domain";
 import { chamar } from "@/lib/api";
 
 /**
  * Barra lateral. Em telas estreitas vira uma faixa horizontal rolavel no topo -
  * mesmo markup, so muda a direcao do flex, sem duplicar a lista de rotas.
  */
-export function Navegacao({ usuario }: { usuario: UsuarioSessao }) {
+export function Navegacao({
+  usuario,
+  semDono,
+}: {
+  usuario: UsuarioSessao;
+  /** Rotinas sem responsavel. Vira o aviso ao lado de "Kanban". */
+  semDono: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
@@ -65,6 +72,17 @@ export function Navegacao({ usuario }: { usuario: UsuarioSessao }) {
                 />
               )}
               {i.rotulo}
+
+              {/* Numero, e nao bolinha: "3 esperando" e uma informacao,
+                  "tem coisa la" e so ansiedade. */}
+              {i.href === ROTAS.kanban && semDono > 0 && (
+                <span
+                  title={`${semDono} rotina${semDono === 1 ? "" : "s"} sem responsavel`}
+                  className="num ml-1.5 rounded-xs bg-prio-alta px-1 text-[10px] font-medium text-papel"
+                >
+                  {semDono}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -78,13 +96,25 @@ export function Navegacao({ usuario }: { usuario: UsuarioSessao }) {
           <BotaoTema recolhido />
         </div>
 
-        <div className="ml-auto flex items-center gap-2 px-1 py-1 md:ml-0">
+        {/* O bloco de identidade e o caminho para a propria conta - e onde a
+            pessoa procura quando quer trocar a senha. Fora de NAVEGACAO de
+            proposito: nao e uma area do sistema, e o canto de quem esta logado. */}
+        <Link
+          href={ROTAS.conta}
+          aria-current={pathname === ROTAS.conta ? "page" : undefined}
+          title="Minha conta"
+          className={`transicao ml-auto flex items-center gap-2 rounded-sm px-1 py-1 md:ml-0 ${
+            pathname === ROTAS.conta
+              ? "bg-papel-baixo text-tinta"
+              : "text-tinta hover:bg-papel-baixo"
+          }`}
+        >
           <Avatar nome={usuario.nome} />
           <span className="hidden min-w-0 flex-1 text-[12px] leading-tight md:block">
             <span className="block truncate">{usuario.nome}</span>
             <span className="block text-tinta-fraca">{ROTULO_PAPEL[usuario.papel]}</span>
           </span>
-        </div>
+        </Link>
 
         <button
           type="button"

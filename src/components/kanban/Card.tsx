@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { COR_PRIORIDADE, DIAS_CARD_ENVELHECIDO, type TaskCard } from "@/domain";
 import { diasCorridos, formatarData, humanizarDias } from "@/lib/datas";
+import { AssumirTask } from "./AssumirTask";
 
 /**
  * A ordem dos campos e a ordem de leitura pedida: Solicitacao, Assunto, Cliente,
@@ -22,8 +23,12 @@ export function Card({
       /* O card continua inteiro enquanto e arrastado - quem o desenha na mao e
          o Quadro, com este mesmo componente. O cursor de mao so aparece quando
          arrastar de fato faz alguma coisa. */
+      /* `select-none` so quando arrastavel: o gesto comeca em cima de texto, e
+         sem isso o navegador comeca a marcar o texto antes de o arrasto passar
+         do limiar - a marcacao azul aparece por um instante e o card parece
+         travado. Onde nao se arrasta, o texto continua selecionavel. */
       className={`transicao relative rounded-sm border border-linha bg-papel-alto py-2 pl-3 pr-2.5 hover:border-linha-forte hover:shadow-hover ${
-        arrastavel ? "cursor-grab active:cursor-grabbing" : ""
+        arrastavel ? "cursor-grab select-none active:cursor-grabbing" : ""
       }`}
     >
       {/* Barra lateral = prioridade. Unica cor sempre presente no card. */}
@@ -50,6 +55,10 @@ export function Card({
 
       <Link
         href={`/kanban/${card.codigo}`}
+        /* Link e arrastavel por padrao no navegador. Como o titulo ocupa a
+           largura toda do card, e por ele que quase todo arrasto comeca - e o
+           arrasto nativo do link roubaria o gesto. */
+        draggable={false}
         className="mb-2 block text-[13px] font-medium leading-snug hover:text-acento"
       >
         {card.assunto}
@@ -78,7 +87,14 @@ export function Card({
       )}
 
       <footer className="flex items-center gap-2">
-        <Avatar nome={card.responsavel?.nome ?? null} tamanho={20} />
+        {/* Rotina sem dono ganha um botao no lugar do avatar tracejado. O
+            tracejado sozinho era discreto demais numa coluna cheia, e nao
+            oferecia saida: dava para ver o problema e nao para resolver. */}
+        {card.responsavel === null ? (
+          <AssumirTask taskId={card.id} compacto />
+        ) : (
+          <Avatar nome={card.responsavel.nome} tamanho={20} />
+        )}
 
         <span
           className="cor-legivel truncate text-[11px]"

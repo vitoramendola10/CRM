@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Selo } from "@/components/ui/Selo";
 import {
   AGRUPAMENTOS_KANBAN,
@@ -13,8 +13,10 @@ import {
 } from "@/domain";
 import { agruparCards } from "@/lib/agrupar";
 import { chamar } from "@/lib/api";
+import { DIRECAO, alvoDoTeclado, type Direcao } from "./alvo-teclado";
 import { Card } from "./Card";
 import { useArrasto } from "./useArrasto";
+import { usePreferencia } from "./usePreferencia";
 
 /**
  * O card arrastado acompanha o cursor, inclinado e com sombra; o lugar de origem
@@ -25,7 +27,15 @@ import { useArrasto } from "./useArrasto";
  * derivadas dos cards, e mover um card entre elas significaria editar um campo
  * (trocar o responsavel, o cliente) - o que se faz no detalhe da rotina, com
  * historico, e nao por arrasto silencioso.
+ *
+ * Todo movimento tem tambem caminho por teclado (Alt + setas). Nao e enfeite de
+ * acessibilidade: arrastar era a UNICA forma de avancar uma rotina de etapa, e
+ * quem nao usa mouse ficava sem conseguir tocar o processo.
  */
+
+function orfas(cards: TaskCard[]): number {
+  return cards.filter((c) => c.responsavel === null).length;
+}
 
 function Indicador({ alerta = false }: { alerta?: boolean }) {
   const cor = alerta ? "bg-prio-alta" : "bg-acento";
@@ -53,11 +63,25 @@ export function Quadro({
   etiquetas: Etiqueta[];
 }) {
   const router = useRouter();
-  const [eixo, setEixo] = useState<AgrupamentoKanban>("etapa");
-  const [apenasMinhas, setApenasMinhas] = useState(false);
+  // Como a pessoa gosta de olhar o board fica guardado no navegador dela.
+  const [eixo, setEixo] = usePreferencia<AgrupamentoKanban>(
+    "kanban.eixo",
+    "etapa",
+    AGRUPAMENTOS_KANBAN,
+  );
+  const [quem, setQuem] = usePreferencia<"todas" | "minhas">("kanban.quem", "todas", [
+    "todas",
+    "minhas",
+  ]);
+  const apenasMinhas = quem === "minhas";
   const [filtroEtiqueta, setFiltroEtiqueta] = useState<string | null>(null);
+  const [soSemDono, setSoSemDono] = useState(false);
   const [otimista, setOtimista] = useState<TaskCard[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  /** Card que acabou de ser movido pelo teclado, para nao perder o foco. */
+  const [foco, setFoco] = useState<string | null>(null);
+  /** O que o leitor de tela anuncia depois de um movimento por teclado. */
+  const [aviso, setAviso] = useState("");
 
   const todos = otimista ?? cards;
   const podeArrastar = eixo === "etapa";
@@ -65,9 +89,18 @@ export function Quadro({
   const visiveis = useMemo(() => {
     let v = todos;
     if (apenasMinhas) v = v.filter((c) => c.responsavel?.id === euId);
+    if (soSemDono) v = v.filter((c) => c.responsavel === null);
     if (filtroEtiqueta) v = v.filter((c) => c.etiquetas.some((e) => e.id === filtroEtiqueta));
     return v;
-  }, [todos, apenasMinhas, filtroEtiqueta, euId]);
+  }, [todos, apenasMinhas, soSemDono, filtroEtiqueta, euId]);
+
+  /**
+   * Conta sobre TODOS os cards, e nao sobre os visiveis: o botao precisa dizer
+   * quanto trabalho esta sem dono no board, mesmo quando o filtro em uso
+   * escondeu tudo. Um "Sem responsavel 0" enquanto ha cinco orfaos em outra
+   * etiqueta seria pior do que nao ter contador.
+   */
+  const totalSemDono = useMemo(() => todos.filter((c) => c.responsavel === null).length, [todos]);
 
   const grupos = useMemo(() => agruparCards(visiveis, colunas, eixo), [visiveis, colunas, eixo]);
 
@@ -111,6 +144,33 @@ export function Quadro({
     podeArrastar,
   );
 
+  /**
+   * Mesma operacao do arrasto, pelo teclado. Reaproveita `soltar`, entao o
+   * calculo de vizinhos e o otimismo da UI sao exatamente os mesmos - nao ha um
+   * segundo caminho de movimento para manter em dia.
+   */
+  const moverPorTeclado = useCallback(
+    (card: TaskCard, direcao: Direcao) => {
+      const alvo = alvoDoTeclado(grupos, card, direcao);
+      if (!alvo) return; // Ponta do board ou da coluna: nada a fazer, em silencio.
+      setFoco(card.id);
+      setAviso(alvo.aviso);
+      void soltar(alvo.colunaId, alvo.indice, card);
+    },
+    [grupos, soltar],
+  );
+
+  /**
+   * Mover troca o card de coluna, entao o React desmonta e remonta o elemento e
+   * o foco cairia no <body> - quem estava movendo com o teclado perderia o card
+   * a cada tecla. Devolve o foco ao mesmo card no lugar novo.
+   */
+  useEffect(() => {
+    if (!foco) return;
+    const alvo = document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(foco)}"] a`);
+    if (alvo && document.activeElement !== alvo) alvo.focus();
+  }, [foco, grupos]);
+
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -130,24 +190,34 @@ export function Quadro({
         </label>
 
         <div className="flex rounded-sm border border-linha-forte p-0.5">
-          {[
-            { valor: false, rotulo: "Todas" },
-            { valor: true, rotulo: "Minhas" },
-          ].map((o) => (
+          {(["todas", "minhas"] as const).map((o) => (
             <button
-              key={o.rotulo}
+              key={o}
               type="button"
-              onClick={() => setApenasMinhas(o.valor)}
-              className={`transicao rounded-xs px-2.5 py-0.5 text-[12px] ${
-                apenasMinhas === o.valor
-                  ? "bg-tinta text-papel-alto"
-                  : "text-tinta-media hover:text-tinta"
+              onClick={() => setQuem(o)}
+              className={`transicao rounded-xs px-2.5 py-0.5 text-[12px] capitalize ${
+                quem === o ? "bg-tinta text-papel-alto" : "text-tinta-media hover:text-tinta"
               }`}
             >
-              {o.rotulo}
+              {o}
             </button>
           ))}
         </div>
+
+        {/* Vale para qualquer eixo: e o filtro do trabalho que ninguem pegou. */}
+        <button
+          type="button"
+          aria-pressed={soSemDono}
+          onClick={() => setSoSemDono(!soSemDono)}
+          className={`transicao rounded-sm border px-2.5 py-1 text-[12px] ${
+            soSemDono
+              ? "border-prio-alta bg-prio-alta text-papel"
+              : "border-linha-forte text-tinta-media hover:bg-papel-baixo hover:text-tinta"
+          }`}
+        >
+          Sem responsavel
+          <span className="num ml-1.5 text-[11px] opacity-75">{totalSemDono}</span>
+        </button>
 
         {etiquetas.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
@@ -172,11 +242,17 @@ export function Quadro({
           {visiveis.length} {visiveis.length === 1 ? "rotina" : "rotinas"}
         </span>
 
-        {!podeArrastar && (
-          <span className="text-[12px] text-tinta-fraca">
-            Arrastar so no agrupamento por etapa.
-          </span>
-        )}
+        <span className="text-[12px] text-tinta-fraca">
+          {podeArrastar
+            ? "Arraste ou use Alt + setas no card em foco."
+            : "Arrastar so no agrupamento por etapa."}
+        </span>
+
+        {/* Movimento por teclado nao muda nada visivel perto do foco: sem isto,
+            quem usa leitor de tela nao saberia se a tecla fez efeito. */}
+        <span aria-live="polite" className="sr-only">
+          {aviso}
+        </span>
 
         {erro && (
           <span role="alert" className="ml-auto text-[12px] text-cat-cancelado">
@@ -215,6 +291,19 @@ export function Quadro({
                   <h2 className="truncate text-[12px] font-semibold uppercase tracking-[0.06em]">
                     {grupo.nome}
                   </h2>
+
+                  {/* Trabalho sem dono, por etapa. Cinco orfaos no Backlog e
+                      uma fila; um orfao em Homologacao e alguem que largou algo
+                      no meio - o mesmo numero total esconde os dois casos. */}
+                  {orfas(lista) > 0 && (
+                    <span
+                      title={`${orfas(lista)} sem responsavel nesta etapa`}
+                      className="num rounded-xs border border-dashed border-tinta-fraca px-1 text-[10px] text-tinta-fraca"
+                    >
+                      {orfas(lista)} s/ dono
+                    </span>
+                  )}
+
                   <span
                     className={`num ml-auto text-[11px] ${
                       estourou || vaiEstourar ? "font-medium text-prio-alta" : "text-tinta-fraca"
@@ -240,7 +329,17 @@ export function Quadro({
                         key={card.id}
                         data-coluna-id={podeArrastar ? grupo.id : undefined}
                         data-card-indice={podeArrastar ? i : undefined}
+                        data-card-id={card.id}
                         onPointerDown={(e) => comecar(e, card)}
+                        onKeyDown={(e) => {
+                          if (!podeArrastar || !e.altKey) return;
+                          const direcao = DIRECAO[e.key as keyof typeof DIRECAO];
+                          if (!direcao) return;
+                          // Alt+Seta esquerda e "voltar" no navegador; sem isto
+                          // o card mudaria de coluna e a pagina sairia junto.
+                          e.preventDefault();
+                          moverPorTeclado(card, direcao);
+                        }}
                         /* `relative` para o indicador ficar em absolute sem
                            empurrar a coluna a cada movimento do mouse. */
                         className="relative"

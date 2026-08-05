@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   char,
+  check,
   date,
   datetime,
   decimal,
@@ -211,6 +212,34 @@ export const ticketMessages = mysqlTable(
   (t) => [index("idx_ticket_messages_ticket").on(t.ticketId, t.createdAt)],
 );
 
+/**
+ * O que mudou no chamado, quem mudou e quando. Espelha `task_history`, e pela
+ * mesma razao: a mensagem conta o que foi CONVERSADO, nao o que foi DECIDIDO.
+ * Sem isto nao ha resposta para "quem passou isso para urgente?" nem para
+ * "quantas vezes este chamado reabriu" - e reabertura e o melhor indicador de
+ * qualidade que um suporte tem.
+ *
+ * `campo` guarda o nome do campo em si ("situacao", "prioridade", "atendente")
+ * ou o nome do evento ("reaberto"), e os valores vao ja em texto legivel: o
+ * historico e leitura humana, e nao pode depender de um id que o cadastro
+ * apagou depois.
+ */
+export const ticketHistory = mysqlTable(
+  "ticket_history",
+  {
+    id: protocolo("id").autoincrement().primaryKey(),
+    ticketId: protocolo("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    userId: fk("user_id").references(() => users.id),
+    campo: varchar("campo", { length: 40 }).notNull(),
+    valorAntigo: varchar("valor_antigo", { length: 255 }),
+    valorNovo: varchar("valor_novo", { length: 255 }),
+    createdAt: criadoEm(),
+  },
+  (t) => [index("idx_ticket_history_ticket").on(t.ticketId, t.createdAt)],
+);
+
 // =============================================================
 // 4. DEV (a rotina que o suporte gera)
 // =============================================================
@@ -307,6 +336,48 @@ export const taskComments = mysqlTable(
     createdAt: criadoEm(),
   },
   (t) => [index("idx_task_comments_task").on(t.taskId, t.createdAt)],
+);
+
+/**
+ * Anexo de chamado ou de rotina. O ARQUIVO fica em disco (ver src/lib/anexos.ts);
+ * aqui vive so o registro dele.
+ *
+ * Por que nao LONGBLOB: o dump do banco e um .sql de texto, e binario ali vira
+ * hexadecimal - cada MB de print viraria uns 2 MB no arquivo, multiplicado pelos
+ * 14 dumps que a rotacao guarda. O preco de manter fora e o backup passar a ter
+ * duas partes, e por isso `npm run db:backup` empacota a pasta junto.
+ *
+ * Uma linha pertence a UM chamado ou a UMA rotina, nunca aos dois nem a nenhum -
+ * garantido pelo CHECK, e nao so pela boa vontade do service.
+ */
+export const attachments = mysqlTable(
+  "attachments",
+  {
+    id: id(),
+    ticketId: protocolo("ticket_id").references(() => tickets.id, { onDelete: "cascade" }),
+    taskId: fk("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    /** Como o arquivo se chamava na maquina de quem enviou. So para exibir e baixar. */
+    nomeOriginal: varchar("nome_original", { length: 255 }).notNull(),
+    tipoMime: varchar("tipo_mime", { length: 120 }).notNull(),
+    tamanhoBytes: bigint("tamanho_bytes", { mode: "number", unsigned: true }).notNull(),
+    /**
+     * Caminho RELATIVO a pasta de anexos, no formato "AAAA/MM/<uuid>.<ext>".
+     * Relativo de proposito: mover a pasta ou trocar de maquina nao exige
+     * reescrever o banco.
+     */
+    caminho: varchar("caminho", { length: 200 }).notNull(),
+    enviadoPor: fk("enviado_por").references(() => users.id),
+    createdAt: criadoEm(),
+  },
+  (t) => [
+    index("idx_attachments_ticket").on(t.ticketId),
+    index("idx_attachments_task").on(t.taskId),
+    unique("uq_attachments_caminho").on(t.caminho),
+    check(
+      "ck_attachments_dono",
+      sql`(${t.ticketId} is not null and ${t.taskId} is null) or (${t.ticketId} is null and ${t.taskId} is not null)`,
+    ),
+  ],
 );
 
 /** De onde saem lead time, cycle time e o "quem mexeu nisso". */
@@ -424,11 +495,17 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
   client: one(clients, { fields: [tickets.clientId], references: [clients.id] }),
   atendente: one(users, { fields: [tickets.atendenteId], references: [users.id] }),
   mensagens: many(ticketMessages),
+  historico: many(ticketHistory),
 }));
 
 export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
   ticket: one(tickets, { fields: [ticketMessages.ticketId], references: [tickets.id] }),
   autor: one(users, { fields: [ticketMessages.userId], references: [users.id] }),
+}));
+
+export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
+  ticket: one(tickets, { fields: [ticketHistory.ticketId], references: [tickets.id] }),
+  autor: one(users, { fields: [ticketHistory.userId], references: [users.id] }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -465,6 +542,12 @@ export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
 export const taskHistoryRelations = relations(taskHistory, ({ one }) => ({
   task: one(tasks, { fields: [taskHistory.taskId], references: [tasks.id] }),
   autor: one(users, { fields: [taskHistory.userId], references: [users.id] }),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  ticket: one(tickets, { fields: [attachments.ticketId], references: [tickets.id] }),
+  task: one(tasks, { fields: [attachments.taskId], references: [tasks.id] }),
+  autor: one(users, { fields: [attachments.enviadoPor], references: [users.id] }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({

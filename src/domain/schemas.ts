@@ -72,11 +72,40 @@ export const atualizarUsuarioSchema = z.object({
 });
 export type AtualizarUsuarioInput = z.infer<typeof atualizarUsuarioSchema>;
 
-export const trocarSenhaSchema = z.object({
-  senhaAtual: z.string().min(1, "Informe a senha atual"),
-  senhaNova: z.string().min(8, "Minimo de 8 caracteres").max(200),
-});
+export const trocarSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1, "Informe a senha atual"),
+    senhaNova: z.string().min(8, "Minimo de 8 caracteres").max(200),
+  })
+  // Trocar a senha por ela mesma passaria em tudo e nao trocaria nada. O caminho
+  // do erro aponta o campo novo: e nele que a pessoa tem que mexer.
+  .refine((d) => d.senhaNova !== d.senhaAtual, {
+    message: "A senha nova precisa ser diferente da atual",
+    path: ["senhaNova"],
+  });
 export type TrocarSenhaInput = z.infer<typeof trocarSenhaSchema>;
+
+// ------------------------------------------------------------------
+// Anexos
+// ------------------------------------------------------------------
+
+/**
+ * A quem o anexo pertence. Chega por multipart (o arquivo nao cabe em JSON),
+ * entao os valores vem como texto e sao convertidos aqui.
+ *
+ * O `refine` repete, na borda, o CHECK que o banco ja impoe. Nao e redundancia
+ * inutil: aqui a pessoa le "informe o chamado ou a rotina"; la, o MySQL
+ * devolveria uma violacao de constraint que viraria um 500 sem sentido na tela.
+ */
+export const destinoAnexoSchema = z
+  .object({
+    ticketId: z.coerce.number().int().positive().nullable().default(null),
+    taskId: uuid.nullable().default(null),
+  })
+  .refine((d) => (d.ticketId === null) !== (d.taskId === null), {
+    message: "Informe o chamado ou a rotina, e apenas um dos dois.",
+  });
+export type DestinoAnexoInput = z.infer<typeof destinoAnexoSchema>;
 
 // ------------------------------------------------------------------
 // Clientes
@@ -211,8 +240,20 @@ export type AtualizarTicketInput = z.infer<typeof atualizarTicketSchema>;
 export const ticketMessageSchema = z.object({
   corpo: texto(5000),
   interno: z.boolean().default(true),
+  /**
+   * Mudar a situacao junto com o registro. Opcional porque anotar sem mexer no
+   * estado continua valendo - mas quando as duas coisas vao juntas elas sao um
+   * gesto so para quem atende, e por isso viajam no mesmo pedido.
+   */
+  situacao: z.enum(SITUACOES_TICKET).nullable().default(null),
 });
 export type TicketMessageInput = z.infer<typeof ticketMessageSchema>;
+
+/** O caminho de um clique: so a situacao, sem arrastar o formulario inteiro. */
+export const trocarSituacaoSchema = z.object({
+  situacao: z.enum(SITUACOES_TICKET),
+});
+export type TrocarSituacaoInput = z.infer<typeof trocarSituacaoSchema>;
 
 export const filtroTicketsSchema = z.object({
   situacao: z.enum(SITUACOES_TICKET).nullable().default(null),

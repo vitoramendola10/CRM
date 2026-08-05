@@ -8,8 +8,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!v.ok) return v.resposta;
 
   try {
-    await exigirSessaoApi();
-    await editarTicket(protocoloDaUrl((await params).id), v.dados);
+    const usuario = await exigirSessaoApi();
+    await editarTicket(protocoloDaUrl((await params).id), v.dados, usuario);
     return respostaOk({ ok: true });
   } catch (e) {
     return tratarErro(e);

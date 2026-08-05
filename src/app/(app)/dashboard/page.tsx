@@ -8,8 +8,14 @@ import {
   chamadosAguardandoDev,
   nomesDeColunas,
   resumo,
+  resumoSuporte,
 } from "@/db/queries/dashboard";
-import { COR_PRIORIDADE, DIAS_CARD_ENVELHECIDO, ROTULO_PRIORIDADE } from "@/domain";
+import {
+  COR_PRIORIDADE,
+  DIAS_CARD_ENVELHECIDO,
+  DIAS_CHAMADO_PARADO,
+  ROTULO_PRIORIDADE,
+} from "@/domain";
 import { diasCorridos, formatarData, humanizarDias } from "@/lib/datas";
 import { leadTimePorColuna } from "@/services/relatorio";
 
@@ -26,8 +32,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const [r, leadTime, backlog, aguardando] = await Promise.all([
+  const [r, s, leadTime, backlog, aguardando] = await Promise.all([
     resumo(board.id),
+    resumoSuporte(DIAS_CHAMADO_PARADO),
     leadTimePorColuna(board.id),
     backlogPorCliente(board.id),
     chamadosAguardandoDev(),
@@ -40,6 +47,9 @@ export default async function DashboardPage() {
     <main className="mx-auto max-w-6xl px-4 py-5">
       <Cabecalho titulo="Dashboard" descricao={`Board ${board.nome}.`} />
 
+      <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tinta-fraca">
+        Desenvolvimento
+      </h2>
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
         <Indicador rotulo="Na fila" valor={r.emAberto} />
         <Indicador rotulo="Em andamento" valor={r.emAndamento} />
@@ -50,6 +60,38 @@ export default async function DashboardPage() {
           valor={r.cycleTimeMedioDias === null ? "--" : `${r.cycleTimeMedioDias.toFixed(1)}d`}
         />
       </div>
+
+      {/* O suporte nao era medido: `fechado_em` ja era gravado e ninguem lia.
+          Nao filtra por board de proposito - chamado nao pertence a board. */}
+      <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tinta-fraca">
+        Atendimento
+      </h2>
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
+        <Indicador rotulo="Chamados abertos" valor={s.abertos} />
+        <Indicador
+          rotulo="Sem atendente"
+          valor={s.semAtendente}
+          alerta={s.semAtendente > 0}
+        />
+        <Indicador
+          rotulo={`Parados (${DIAS_CHAMADO_PARADO}d+)`}
+          valor={s.parados}
+          alerta={s.parados > 0}
+        />
+        <Indicador rotulo="Fechados (30 dias)" valor={s.fechadosNoMes} />
+        <Indicador
+          rotulo="Tempo medio ate fechar"
+          valor={s.tempoMedioDias === null ? "--" : `${s.tempoMedioDias.toFixed(1)}d`}
+        />
+      </div>
+
+      {s.reaberturasNoMes > 0 && (
+        <p className="mb-4 rounded-sm border border-prio-media/35 bg-prio-media/8 px-3 py-2 text-[13px]">
+          <span className="num font-medium">{s.reaberturasNoMes}</span> reabertura
+          {s.reaberturasNoMes === 1 ? "" : "s"} nos ultimos 30 dias — chamado que voltou depois de
+          ter sido dado como resolvido. Vale olhar o que passou batido.
+        </p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Painel titulo="Lead time por etapa" contagem={leadTime.length}>

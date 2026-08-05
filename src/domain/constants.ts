@@ -43,6 +43,22 @@ export const SITUACOES_TICKET = [
   "cancelado",
 ] as const satisfies readonly SituacaoTicket[];
 
+/**
+ * Situacoes que contam como chamado encerrado. E o que decide se `fechado_em`
+ * recebe carimbo, e por consequencia o que entra em qualquer medida de tempo de
+ * atendimento. Fica no dominio para o banco, o relatorio e a tela lerem a mesma
+ * lista - somar "resolvido" e esquecer "cancelado" e o jeito classico de um
+ * indicador ficar 10% otimista sem ninguem notar.
+ */
+export const SITUACOES_FECHADAS = [
+  "resolvido",
+  "cancelado",
+] as const satisfies readonly SituacaoTicket[];
+
+export function situacaoEhFechada(s: SituacaoTicket): boolean {
+  return (SITUACOES_FECHADAS as readonly SituacaoTicket[]).includes(s);
+}
+
 export const CANAIS_TICKET = [
   "manual",
   "telefone",
@@ -167,6 +183,7 @@ export const ROTAS = {
   atendimentos: "/atendimentos",
   dashboard: "/dashboard",
   config: "/config",
+  conta: "/conta",
 } as const;
 
 /**
@@ -190,6 +207,10 @@ export const PAPEIS_POR_ROTA: Record<string, readonly Papel[]> = {
   [ROTAS.dashboard]: ["admin", "gestor"],
   // Inclui /config/clientes: o cadastro de cliente e configuracao do sistema.
   [ROTAS.config]: ["admin", "gestor"],
+  // Listada mesmo liberando todo mundo: `podeAcessar` deixa passar o que nao
+  // esta aqui, entao sem esta linha a permissao de /conta seria um silencio, e
+  // nao uma decisao. Vale para /api/conta/* pelo espelhamento do middleware.
+  [ROTAS.conta]: PAPEIS,
 };
 
 export const AGRUPAMENTOS_KANBAN = [
@@ -267,8 +288,74 @@ export function categoriaDaColuna(
 // Regras de negocio numericas
 // ------------------------------------------------------------------
 
+// ------------------------------------------------------------------
+// Anexos
+// ------------------------------------------------------------------
+
+/**
+ * Teto por arquivo. Serve print, log e planilha - que e o que aparece num
+ * atendimento. Video e instalador nao entram aqui: para isso existe link.
+ *
+ * O `max_allowed_packet` do MySQL nao limita nada disto (o arquivo nao passa
+ * pelo banco), mas um proxy na frente da aplicacao pode ter limite proprio -
+ * se um dia entrar nginx, `client_max_body_size` precisa acompanhar este valor.
+ */
+export const ANEXO_MAX_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Tipos aceitos, e a extensao com que o arquivo e gravado em disco.
+ *
+ * E uma lista fechada, nao uma lista de bloqueio, porque o perigo aqui e servir
+ * de volta um arquivo que o navegador execute no dominio da aplicacao. Por isso
+ * ficam de fora `text/html` e `image/svg+xml`: SVG e XML, aceita <script>
+ * dentro, e seria servido como imagem legitima.
+ *
+ * A extensao vem DAQUI e nunca do nome enviado: e o mapeamento que decide como
+ * o arquivo se chama no disco.
+ */
+export const ANEXO_TIPOS: Readonly<Record<string, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "application/zip": "zip",
+  "application/msword": "doc",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+};
+
+/** So imagem abre dentro da pagina; o resto sempre baixa. */
+export function anexoEhImagem(tipoMime: string): boolean {
+  return tipoMime.startsWith("image/") && tipoMime in ANEXO_TIPOS;
+}
+
+export function extensaoDoTipo(tipoMime: string): string | null {
+  return ANEXO_TIPOS[tipoMime] ?? null;
+}
+
+/** "1,4 MB". Tamanho de arquivo em byte cru nao diz nada a ninguem. */
+export function formatarTamanho(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0).replace(".", ",")} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(1).replace(".", ",")} MB`;
+}
+
 /** Card parado ha mais dias que isto ganha destaque de envelhecido no Kanban. */
 export const DIAS_CARD_ENVELHECIDO = 14;
+
+/**
+ * Chamado aberto sem nenhum movimento ha mais dias que isto aparece destacado
+ * na lista. Bem menor que o do Kanban de proposito: rotina de desenvolvimento
+ * leva semanas por natureza, chamado de suporte parado tres dias e alguem
+ * esperando resposta.
+ */
+export const DIAS_CHAMADO_PARADO = 3;
 
 /** Worker de e-mail: quantidade por rodada e teto de tentativas antes de marcar erro. */
 export const OUTBOX_LOTE = 20;

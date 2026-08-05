@@ -25,6 +25,16 @@ export async function buscarPorUsername(
   return linha ?? null;
 }
 
+/** Idem, pelo id. So a troca de senha usa: e la que se confere a senha atual. */
+export async function buscarHashDoUsuario(id: string): Promise<string | null> {
+  const [linha] = await db
+    .select({ senhaHash: users.senhaHash })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  return linha?.senhaHash ?? null;
+}
+
 export async function buscarUsuario(id: string): Promise<Usuario | null> {
   const [linha] = await db.select(colunasPublicas).from(users).where(eq(users.id, id)).limit(1);
   return linha ?? null;
@@ -116,6 +126,15 @@ export async function buscarSessaoValida(id: string): Promise<UsuarioSessao | nu
 
 export async function apagarSessao(id: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.id, id));
+}
+
+/**
+ * Derruba tudo que estava aberto em nome do usuario. Chamado na troca de senha:
+ * quem trocou a senha porque desconfiou de alguem espera exatamente isso - que a
+ * sessao do outro pare de valer no mesmo instante, e nao daqui a trinta dias.
+ */
+export async function apagarSessoesDoUsuario(userId: string): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
 }
 
 /** Chamado no login: impede a tabela de crescer com sessao morta. */

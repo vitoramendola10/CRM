@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Anexos } from "@/components/anexos/Anexos";
+import { Assumir } from "@/components/tickets/Assumir";
 import { Escalar } from "@/components/tickets/Escalar";
+import { HistoricoTicket } from "@/components/tickets/HistoricoTicket";
+import { SituacaoRapida } from "@/components/tickets/SituacaoRapida";
 import { FormTicket } from "@/components/tickets/FormTicket";
 import { Timeline } from "@/components/tickets/Timeline";
 import { Painel } from "@/components/ui/Painel";
 import { Selo } from "@/components/ui/Selo";
 import { listarBoards, listarTipos } from "@/db/queries/config";
-import { buscarTicket, listarClientes, listarMensagens } from "@/db/queries/tickets";
+import {
+  buscarTicket,
+  listarClientes,
+  listarHistoricoTicket,
+  listarMensagens,
+} from "@/db/queries/tickets";
 import { listarUsuarios } from "@/db/queries/users";
 import {
   COR_PRIORIDADE,
@@ -15,7 +24,9 @@ import {
   ROTULO_PRIORIDADE,
   ROTULO_SITUACAO_TICKET,
 } from "@/domain";
+import { exigirSessao } from "@/lib/auth";
 import { formatarDataHora } from "@/lib/datas";
+import { anexosDoTicket } from "@/services/anexo";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +38,15 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   const ticket = await buscarTicket(n);
   if (!ticket) notFound();
 
-  const [mensagens, clientes, usuarios, boards, tipos] = await Promise.all([
+  const [mensagens, clientes, usuarios, boards, tipos, anexos, historico, eu] = await Promise.all([
     listarMensagens(ticket.id),
     listarClientes(),
     listarUsuarios(true),
     listarBoards(),
     listarTipos(true),
+    anexosDoTicket(ticket.id),
+    listarHistoricoTicket(ticket.id),
+    exigirSessao(),
   ]);
 
   const boardsDev = boards.filter((b) => b.tipo === "dev" && b.ativo);
@@ -65,7 +79,8 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
             </h1>
             <p className="num mt-0.5 text-[11px] text-tinta-fraca">
               Aberto em {formatarDataHora(ticket.abertoEm)}
-              {ticket.atendente && ` - ${ticket.atendente}`}
+              {ticket.atendente ? ` - ${ticket.atendente}` : " - sem atendente"}
+              {ticket.fechadoEm && ` - fechado em ${formatarDataHora(ticket.fechadoEm)}`}
             </p>
           </div>
 
@@ -89,16 +104,49 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
             </Link>
           )}
         </div>
+
+        {/* A acao mais frequente da tela fica na primeira dobra, e nao no fundo
+            de um formulario de oito campos. */}
+        <div className="mt-3 flex flex-wrap items-start gap-x-3 gap-y-2">
+          <SituacaoRapida ticketId={ticket.id} situacao={ticket.situacao} />
+          <Assumir
+            ticketId={ticket.id}
+            atendenteId={ticket.atendenteId}
+            euId={eu.id}
+            tamanho="normal"
+          />
+        </div>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <Painel titulo="Atendimento">
-          <FormTicket ticket={ticket} clientes={clientes} usuarios={usuarios} />
-        </Painel>
+        <div className="grid gap-4">
+          <Painel titulo="Atendimento">
+            <FormTicket ticket={ticket} clientes={clientes} usuarios={usuarios} />
+          </Painel>
 
-        <Painel titulo="Registro" contagem={mensagens.length}>
-          <Timeline ticketId={ticket.id} mensagens={mensagens} />
-        </Painel>
+          <Painel titulo="Anexos" contagem={anexos.length}>
+            <Anexos
+              destino={{ ticketId: ticket.id }}
+              iniciais={anexos}
+              euId={eu.id}
+              papel={eu.papel}
+            />
+          </Painel>
+        </div>
+
+        <div className="grid gap-4">
+          <Painel titulo="Registro" contagem={mensagens.length}>
+            <Timeline
+              ticketId={ticket.id}
+              situacao={ticket.situacao}
+              mensagens={mensagens}
+            />
+          </Painel>
+
+          <Painel titulo="O que mudou" contagem={historico.length}>
+            <HistoricoTicket registros={historico} />
+          </Painel>
+        </div>
       </div>
     </main>
   );

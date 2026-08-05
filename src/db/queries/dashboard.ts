@@ -1,6 +1,15 @@
 import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../client";
-import { boardColumns, clients, taskHistory, taskStatuses, tasks, tickets, users } from "../schema";
+import {
+  boardColumns,
+  clients,
+  taskHistory,
+  taskStatuses,
+  tasks,
+  ticketHistory,
+  tickets,
+  users,
+} from "../schema";
 import type { Prioridade } from "@/domain";
 
 /**
@@ -189,6 +198,79 @@ export async function resumo(boardId: string): Promise<Resumo> {
     cycleTimeMedioDias: ciclo === null || ciclo === undefined ? null : Number(ciclo),
   };
 }
+
+export interface ResumoSuporte {
+  abertos: number;
+  /** Aberto, sem ninguem: e o pior estado em que um chamado pode estar. */
+  semAtendente: number;
+  /** Aberto e sem nenhum movimento ha mais de DIAS_CHAMADO_PARADO. */
+  parados: number;
+  fechadosNoMes: number;
+  /** Da abertura ao fechamento, em dias. null quando nada fechou ainda. */
+  tempoMedioDias: number | null;
+  /** Reaberturas nos ultimos 30 dias - a medida de qualidade mais honesta. */
+  reaberturasNoMes: number;
+}
+
+/**
+ * O suporte, medido.
+ *
+ * `fechado_em` ja era gravado e nao era lido por ninguem: o dashboard so olhava
+ * o board de dev. Aqui ele finalmente vira numero. Tudo sai de uma varredura so
+ * em `tickets`, mais uma contagem no historico - a tabela e pequena e o
+ * dashboard e uma tela, nao um relatorio.
+ */
+export async function resumoSuporte(diasParado: number): Promise<ResumoSuporte> {
+  const abertoAgora = sql`${tickets.situacao} not in ('resolvido','cancelado')`;
+
+  const [linha] = await db
+    .select({
+      abertos: sql<number>`sum(${abertoAgora})`.mapWith(Number),
+      semAtendente: sql<number>`sum(${abertoAgora} and ${tickets.atendenteId} is null)`.mapWith(
+        Number,
+      ),
+      parados: sql<number>`sum(${abertoAgora} and ${ultimaAtividadeDoTicket} < date_sub(current_timestamp(3), interval ${sql.raw(String(diasParado))} day))`.mapWith(
+        Number,
+      ),
+      fechadosNoMes: sql<number>`sum(${tickets.fechadoEm} >= date_sub(current_timestamp(3), interval 30 day))`.mapWith(
+        Number,
+      ),
+      // Em minutos e dividido depois: timestampdiff em dias truncaria tudo que
+      // fecha no mesmo dia para zero, e no suporte isso e a maioria.
+      tempoMedioDias: sql<
+        number | null
+      >`avg(timestampdiff(minute, ${tickets.abertoEm}, ${tickets.fechadoEm})) / 1440`,
+    })
+    .from(tickets);
+
+  const [reab] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(ticketHistory)
+    .where(
+      and(
+        eq(ticketHistory.campo, "reaberto"),
+        sql`${ticketHistory.createdAt} >= date_sub(current_timestamp(3), interval 30 day)`,
+      ),
+    );
+
+  const media = linha?.tempoMedioDias;
+
+  return {
+    abertos: linha?.abertos ?? 0,
+    semAtendente: linha?.semAtendente ?? 0,
+    parados: linha?.parados ?? 0,
+    fechadosNoMes: linha?.fechadosNoMes ?? 0,
+    tempoMedioDias: media === null || media === undefined ? null : Number(media),
+    reaberturasNoMes: reab?.n ?? 0,
+  };
+}
+
+/** Mesma definicao da lista de atendimentos - ver queries/tickets.ts. */
+const ultimaAtividadeDoTicket = sql`GREATEST(
+  ${tickets.abertoEm},
+  COALESCE((SELECT MAX(m.created_at) FROM ticket_messages m WHERE m.ticket_id = ${tickets.id}), ${tickets.abertoEm}),
+  COALESCE((SELECT MAX(h.created_at) FROM ticket_history h WHERE h.ticket_id = ${tickets.id}), ${tickets.abertoEm})
+)`;
 
 export async function nomesDeColunas(ids: string[]): Promise<Record<string, { nome: string; cor: string }>> {
   if (ids.length === 0) return {};

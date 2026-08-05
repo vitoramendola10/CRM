@@ -7,6 +7,7 @@ import { Botao } from "@/components/ui/Botao";
 import { Vazio } from "@/components/ui/Cabecalho";
 import { Campo, Selecao } from "@/components/ui/Campo";
 import { Modal } from "@/components/ui/Modal";
+import { Paginacao } from "@/components/ui/Paginacao";
 import type { ClienteDaLista } from "@/db/queries/clientes";
 import { chamar } from "@/lib/api";
 import type { CamposComErro } from "@/lib/rota";
@@ -40,9 +41,15 @@ const VAZIO: Rascunho = {
 
 export function ListaClientes({
   clientes,
+  pagina,
+  paginas,
+  total,
   podeExcluir,
 }: {
   clientes: ClienteDaLista[];
+  pagina: number;
+  paginas: number;
+  total: number;
   podeExcluir: boolean;
 }) {
   const router = useRouter();
@@ -64,6 +71,7 @@ export function ListaClientes({
 
   function procurar(e: React.FormEvent) {
     e.preventDefault();
+    // Sem `pagina` na URL de proposito: uma busca nova comeca da primeira.
     router.push(
       busca.trim() === ""
         ? "/config/clientes"
@@ -190,6 +198,10 @@ export function ListaClientes({
             </li>
           ))}
         </ul>
+      )}
+
+      {clientes.length > 0 && (
+        <Paginacao pagina={pagina} paginas={paginas} total={total} substantivo="cliente" />
       )}
 
       <Modal

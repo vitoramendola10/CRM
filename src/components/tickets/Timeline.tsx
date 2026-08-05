@@ -4,20 +4,29 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Botao } from "@/components/ui/Botao";
-import type { TicketMessage } from "@/domain";
+import {
+  ROTULO_SITUACAO_TICKET,
+  SITUACOES_TICKET,
+  type SituacaoTicket,
+  type TicketMessage,
+} from "@/domain";
 import { chamar } from "@/lib/api";
 import { formatarDataHora } from "@/lib/datas";
 
 export function Timeline({
   ticketId,
+  situacao,
   mensagens,
 }: {
   ticketId: number;
+  situacao: SituacaoTicket;
   mensagens: (TicketMessage & { autor: string | null })[];
 }) {
   const router = useRouter();
   const [corpo, setCorpo] = useState("");
   const [interno, setInterno] = useState(true);
+  /** "" = deixar como esta. Registrar sem mexer no estado continua valendo. */
+  const [novaSituacao, setNovaSituacao] = useState<SituacaoTicket | "">("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -27,7 +36,13 @@ export function Timeline({
 
     setEnviando(true);
     setErro(null);
-    const r = await chamar(`/api/tickets/${ticketId}/mensagens`, "POST", { corpo, interno });
+    // As duas coisas no mesmo pedido: o servidor grava numa transacao so, entao
+    // nao existe o meio-termo de a anotacao entrar e a situacao nao mudar.
+    const r = await chamar(`/api/tickets/${ticketId}/mensagens`, "POST", {
+      corpo,
+      interno,
+      situacao: novaSituacao === "" ? null : novaSituacao,
+    });
     setEnviando(false);
 
     if (!r.ok) {
@@ -35,6 +50,7 @@ export function Timeline({
       return;
     }
     setCorpo("");
+    setNovaSituacao("");
     router.refresh();
   }
 
@@ -79,7 +95,7 @@ export function Timeline({
 
         {erro && <p className="text-[13px] text-cat-cancelado">{erro}</p>}
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <Botao
             type="submit"
             variante="primario"
@@ -87,6 +103,25 @@ export function Timeline({
           >
             {enviando ? "Registrando..." : "Registrar"}
           </Botao>
+
+          {/* Anotar e mudar o estado sao um gesto so para quem atende:
+              "liguei, cliente vai testar" e aguardando cliente saem juntos. */}
+          <label className="flex items-center gap-1.5 text-[12px] text-tinta-media">
+            e passar para
+            <select
+              value={novaSituacao}
+              onChange={(e) => setNovaSituacao(e.target.value as SituacaoTicket | "")}
+              className="transicao h-7 cursor-pointer rounded-sm border border-linha-forte bg-papel-alto px-1.5 text-[12px] text-tinta hover:border-tinta-fraca"
+            >
+              <option value="">deixar como esta</option>
+              {SITUACOES_TICKET.filter((s) => s !== situacao).map((s) => (
+                <option key={s} value={s}>
+                  {ROTULO_SITUACAO_TICKET[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="flex items-center gap-1.5 text-[12px] text-tinta-media">
             <input
               type="checkbox"

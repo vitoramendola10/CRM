@@ -3,7 +3,7 @@ import "./load-env";
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, pool } from "./client";
-import { boardColumns, boards, taskStatuses, taskTypes, users } from "./schema";
+import { boardColumns, boards, notificationRules, taskStatuses, taskTypes, users } from "./schema";
 import { COR_CATEGORIA, COR_NEUTRA_COLUNA } from "@/domain/constants";
 import { gerarHash } from "@/lib/password";
 
@@ -36,6 +36,63 @@ const COLUNAS = [
   { nome: "Desenvolvimento", isDone: false },
   { nome: "Homologacao", isDone: false },
   { nome: "Pronto para entrega", isDone: true },
+] as const;
+
+/**
+ * Regras de notificacao minimas.
+ *
+ * Sem nenhuma regra, `enfileirarEvento` resolve zero destinatarios e o evento
+ * some sem deixar rastro - foi o que aconteceu ate agora: a escalacao
+ * enfileirava "task_criada" e ninguem nunca era avisado de nada.
+ *
+ * `boardId: null` = vale para qualquer board, inclusive os que forem criados
+ * depois. Sao um ponto de partida para editar em Configuracao > Notificacoes,
+ * nao uma politica definitiva.
+ */
+const REGRAS = [
+  {
+    evento: "task_criada",
+    destinoTipo: "papel",
+    destinoPapel: "dev",
+    assuntoTpl: "DEV-{{codigo}}: {{titulo}}",
+    corpoTpl:
+      "Chegou uma rotina nova em {{etapa}}, ainda sem responsavel.\n\n" +
+      "DEV-{{codigo}} - {{titulo}}\n" +
+      "Prioridade: {{prioridade}}\n" +
+      "Chamado de origem: #{{protocolo}} ({{solicitante}})\n" +
+      "Enviada por: {{autor}}",
+  },
+  {
+    evento: "task_atribuida",
+    destinoTipo: "responsavel",
+    destinoPapel: null,
+    assuntoTpl: "DEV-{{codigo}} e sua: {{titulo}}",
+    corpoTpl:
+      "{{responsavel}} colocou esta rotina no seu nome.\n\n" +
+      "DEV-{{codigo}} - {{titulo}}\n" +
+      "Chamado de origem: #{{protocolo}}",
+  },
+  {
+    evento: "task_concluida",
+    destinoTipo: "responsavel",
+    destinoPapel: null,
+    assuntoTpl: "Entregue: DEV-{{codigo}} do chamado #{{protocolo}}",
+    corpoTpl:
+      "A rotina do seu chamado chegou em {{etapa}} e o chamado voltou para voce.\n\n" +
+      "DEV-{{codigo}} - {{titulo}}\n" +
+      "Entregue por: {{responsavel}}",
+  },
+  {
+    evento: "ticket_aberto",
+    destinoTipo: "papel",
+    destinoPapel: "suporte",
+    assuntoTpl: "Chamado #{{protocolo}}: {{assunto}}",
+    corpoTpl:
+      "Chamado aberto por {{atendente}}.\n\n" +
+      "#{{protocolo}} - {{assunto}}\n" +
+      "Solicitante: {{solicitante}}\n" +
+      "Prioridade: {{prioridade}}",
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -113,6 +170,37 @@ async function main(): Promise<void> {
       }
     } else {
       avisos.push('usuario "admin" ja existia, senha nao foi alterada');
+    }
+
+    // ---------------- regras de notificacao ----------------
+    // Uma a uma, e nao tudo-ou-nada: quem ja rodou o seed antes desta parte
+    // existir recebe so o que falta, sem duplicar o que ja editou.
+    let novas = 0;
+    for (const r of REGRAS) {
+      const ja = await tx
+        .select({ id: notificationRules.id })
+        .from(notificationRules)
+        .where(eq(notificationRules.evento, r.evento));
+      if (ja.length > 0) continue;
+
+      await tx.insert(notificationRules).values({
+        id: randomUUID(),
+        evento: r.evento,
+        boardId: null,
+        destinoTipo: r.destinoTipo,
+        destinoPapel: r.destinoPapel,
+        destinoUsers: null,
+        assuntoTpl: r.assuntoTpl,
+        corpoTpl: r.corpoTpl,
+      });
+      novas++;
+    }
+    if (novas > 0) console.log(`+ ${novas} regra(s) de notificacao`);
+
+    if (!process.env.SMTP_HOST?.trim()) {
+      avisos.push(
+        "SMTP_HOST nao configurado: as regras existem, mas o worker so imprime no console",
+      );
     }
   });
 

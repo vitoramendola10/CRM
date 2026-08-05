@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { db, type Tx } from "../client";
 import {
   boardColumns,
@@ -73,6 +73,38 @@ export async function listarCards(boardId: string, assigneeId?: string): Promise
     columnId: l.columnId,
     rank: l.rank,
   }));
+}
+
+/** So o responsavel muda. E o "pegar para mim" do board. */
+export async function atribuirResponsavel(
+  tx: Tx,
+  id: string,
+  assigneeId: string | null,
+): Promise<void> {
+  await tx.update(tasks).set({ assigneeId }).where(eq(tasks.id, id));
+}
+
+/**
+ * Quantas rotinas do board estao sem dono e ainda nao terminaram.
+ *
+ * Rotina escalada nasce sem responsavel, entao este numero e, na pratica, "o
+ * que chegou e ninguem pegou". Serve de aviso dentro do sistema enquanto nao ha
+ * SMTP - e continua util depois, porque e-mail se perde e board nao.
+ */
+export async function contarSemResponsavel(boardId: string): Promise<number> {
+  const [r] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(tasks)
+    .innerJoin(taskStatuses, eq(taskStatuses.id, tasks.statusId))
+    .where(
+      and(
+        eq(tasks.boardId, boardId),
+        isNull(tasks.assigneeId),
+        ne(taskStatuses.categoria, "concluido"),
+        ne(taskStatuses.categoria, "cancelado"),
+      ),
+    );
+  return r?.n ?? 0;
 }
 
 export async function buscarTask(id: string): Promise<Task | null> {

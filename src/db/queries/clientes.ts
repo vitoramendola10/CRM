@@ -1,7 +1,9 @@
 import { and, asc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "../client";
 import { clients, tasks, tickets } from "../schema";
+import { contem } from "./like";
 import type { Cliente, ClienteInput } from "@/domain";
+import { POR_PAGINA, montarPagina, pularDe, type Pagina } from "@/lib/paginacao";
 
 /** Cliente com o que ele ja gerou - a lista mostra isso antes de deixar desativar. */
 export interface ClienteDaLista extends Cliente {
@@ -21,30 +23,43 @@ const colunas = {
   ativo: clients.ativo,
 };
 
-export async function listarClientesCompleto(busca?: string): Promise<ClienteDaLista[]> {
+export async function listarClientesCompleto(
+  busca?: string,
+  pagina = 1,
+): Promise<Pagina<ClienteDaLista>> {
   const filtro = busca?.trim();
-  return db
-    .select({
-      ...colunas,
-      chamados: sql<number>`(select count(*) from ${tickets} where ${tickets.clientId} = ${clients.id})`.mapWith(
-        Number,
-      ),
-      rotinas: sql<number>`(select count(*) from ${tasks} where ${tasks.clientId} = ${clients.id})`.mapWith(
-        Number,
-      ),
-    })
-    .from(clients)
-    .where(
-      filtro
-        ? or(
-            like(clients.razaoSocial, `%${filtro}%`),
-            like(clients.nomeFantasia, `%${filtro}%`),
-            like(clients.cnpj, `%${filtro.replace(/\D/g, "")}%`),
-          )
-        : undefined,
-    )
-    .orderBy(asc(clients.razaoSocial))
-    .limit(300);
+  const digitos = filtro?.replace(/\D/g, "");
+
+  const onde = filtro
+    ? or(
+        like(clients.razaoSocial, contem(filtro)),
+        like(clients.nomeFantasia, contem(filtro)),
+        // Sem digito nenhum o padrao viraria `%%`, que casa todo cliente com
+        // CNPJ preenchido - o oposto de filtrar.
+        digitos ? like(clients.cnpj, contem(digitos)) : undefined,
+      )
+    : undefined;
+
+  const [linhas, [contagem]] = await Promise.all([
+    db
+      .select({
+        ...colunas,
+        chamados: sql<number>`(select count(*) from ${tickets} where ${tickets.clientId} = ${clients.id})`.mapWith(
+          Number,
+        ),
+        rotinas: sql<number>`(select count(*) from ${tasks} where ${tasks.clientId} = ${clients.id})`.mapWith(
+          Number,
+        ),
+      })
+      .from(clients)
+      .where(onde)
+      .orderBy(asc(clients.razaoSocial))
+      .limit(POR_PAGINA)
+      .offset(pularDe(pagina)),
+    db.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(clients).where(onde),
+  ]);
+
+  return montarPagina(linhas, contagem?.n ?? 0, pagina);
 }
 
 export async function buscarCliente(id: string): Promise<Cliente | null> {

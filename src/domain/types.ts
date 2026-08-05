@@ -94,6 +94,27 @@ export interface Etiqueta {
   ativo: boolean;
 }
 
+/**
+ * Anexo ja resolvido para a tela. O arquivo em si nao passa por aqui: vive em
+ * disco e so e lido no download, em stream.
+ */
+export interface Anexo {
+  id: string;
+  nomeOriginal: string;
+  tipoMime: string;
+  tamanhoBytes: number;
+  /** Nome de quem enviou; null se o usuario foi removido do sistema. */
+  autor: string | null;
+  /** Id de quem enviou. A tela usa so para decidir se mostra o botao de apagar. */
+  autorId: string | null;
+  createdAt: string;
+  /**
+   * Marca o anexo que veio do chamado de origem e esta sendo exibido na rotina.
+   * A rotina nao pode apagar o que nao e dela.
+   */
+  herdado: boolean;
+}
+
 export interface Ticket {
   id: number; // e o numero do protocolo, sequencial
   clientId: string | null;

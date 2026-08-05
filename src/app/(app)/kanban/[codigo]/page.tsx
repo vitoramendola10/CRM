@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Anexos } from "@/components/anexos/Anexos";
+import { AssumirTask } from "@/components/kanban/AssumirTask";
 import { Painel } from "@/components/ui/Painel";
 import { Selo } from "@/components/ui/Selo";
 import { buscarColuna, listarStatus, listarTipos } from "@/db/queries/config";
@@ -13,7 +15,9 @@ import { etiquetasDaTask, listarEtiquetas } from "@/db/queries/etiquetas";
 import { listarClientes } from "@/db/queries/tickets";
 import { listarUsuarios } from "@/db/queries/users";
 import { COR_PRIORIDADE, ROTULO_PRIORIDADE } from "@/domain";
+import { exigirSessao } from "@/lib/auth";
 import { formatarDataHora } from "@/lib/datas";
+import { anexosDaTask } from "@/services/anexo";
 import { Comentarios } from "./Comentarios";
 import { FormTask } from "./FormTask";
 import { Historico } from "./Historico";
@@ -40,6 +44,8 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
     coluna,
     etiquetas,
     minhasEtiquetas,
+    anexos,
+    eu,
   ] = await Promise.all([
     listarStatus(true),
     listarTipos(true),
@@ -51,6 +57,9 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
     buscarColuna(task.columnId),
     listarEtiquetas(true),
     etiquetasDaTask(task.id),
+    // Traz junto os anexos do chamado de origem, se a rotina veio de um.
+    anexosDaTask(task.id, task.ticketId),
+    exigirSessao(),
   ]);
 
   return (
@@ -68,6 +77,13 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
             texto={ROTULO_PRIORIDADE[task.prioridade]}
             cor={COR_PRIORIDADE[task.prioridade]}
           />
+
+          {task.assigneeId === null && (
+            <span className="flex items-center gap-1.5 text-[12px] text-tinta-fraca">
+              sem responsavel
+              <AssumirTask taskId={task.id} />
+            </span>
+          )}
 
           {task.ticketId !== null && (
             <Link
@@ -102,6 +118,15 @@ export default async function TaskPage({ params }: { params: Promise<{ codigo: s
               tipos={tipos}
               usuarios={usuarios}
               clientes={clientes}
+            />
+          </Painel>
+
+          <Painel titulo="Anexos" contagem={anexos.length}>
+            <Anexos
+              destino={{ taskId: task.id }}
+              iniciais={anexos}
+              euId={eu.id}
+              papel={eu.papel}
             />
           </Painel>
 

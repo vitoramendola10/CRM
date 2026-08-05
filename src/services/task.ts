@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
 import { emailsDosIds } from "@/db/queries/notifications";
 import {
+  atribuirResponsavel,
   atualizarTaskCampos,
   buscarTask,
   inserirComentario,
@@ -67,6 +68,46 @@ export async function editarTask(
         },
       });
     }
+  });
+}
+
+/**
+ * "Pegar para mim" no board.
+ *
+ * Antes, para assumir uma rotina era preciso abrir o card, achar o proprio nome
+ * num select com todos os usuarios e salvar o formulario inteiro - o mesmo
+ * atrito que o suporte tinha e que ja foi tirado de la. Manda so o campo que
+ * muda, entao dois devs olhando a mesma rotina nao se sobrescrevem no resto.
+ *
+ * Recusa roubar de quem ja esta com ela: pegar para si o que outro pegou nao e
+ * um clique acidental que valha desfazer depois, e a conversa sobre quem faz o
+ * que nao se resolve no botao.
+ */
+export async function assumirTask(id: string, usuario: UsuarioSessao): Promise<void> {
+  const atual = await buscarTask(id);
+  if (!atual) throw new ErroDeNegocio("Esta rotina nao existe mais.", 404);
+  if (atual.assigneeId === usuario.id) return;
+
+  if (atual.assigneeId !== null) {
+    throw new ErroDeNegocio(
+      "Esta rotina ja tem responsavel. Para trocar, abra a rotina e mude o campo Responsavel.",
+    );
+  }
+
+  await db.transaction(async (tx) => {
+    await atribuirResponsavel(tx, id, usuario.id);
+    await registrarHistorico(tx, [
+      {
+        taskId: id,
+        userId: usuario.id,
+        campo: "assignee_id",
+        valorAntigo: null,
+        valorNovo: usuario.id,
+      },
+    ]);
+    // Sem enfileirar "task_atribuida": o destinatario dessa notificacao e o
+    // proprio responsavel, e avisar alguem por e-mail do que ele acabou de
+    // clicar e ruido.
   });
 }
 

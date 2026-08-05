@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ClienteRapido, type ClienteCriado } from "@/components/clientes/ClienteRapido";
 import { Botao } from "@/components/ui/Botao";
 import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
 import { Modal } from "@/components/ui/Modal";
@@ -33,11 +34,26 @@ export function NovoTicket({ clientes }: { clientes: Cliente[] }) {
   const [erro, setErro] = useState<string | null>(null);
   const [campos, setCampos] = useState<CamposComErro>({});
   const [enviando, setEnviando] = useState(false);
+  // A lista chega pronta do server component, mas o cadastro rapido precisa
+  // aparecer no seletor na hora - sem recarregar a pagina no meio da ligacao.
+  const [opcoes, setOpcoes] = useState<ClienteCriado[]>(clientes);
+  const [cadastrando, setCadastrando] = useState(false);
 
   function fechar() {
+    // Modal dentro de modal: o `cancel` do <dialog> do cadastro rapido sobe pela
+    // arvore do React ate o `onCancel` deste <dialog>, e um Esc la dentro
+    // fecharia o chamado inteiro junto (o clique no veu nao tem esse problema:
+    // o Modal so fecha quando o alvo e o proprio <dialog>). Enquanto o cadastro
+    // rapido estiver aberto, ele e quem responde pelo Esc.
+    if (cadastrando) return;
     setAberto(false);
     setErro(null);
     setCampos({});
+  }
+
+  function usarNovoCliente(c: ClienteCriado) {
+    setOpcoes([c, ...opcoes]);
+    setF({ ...f, clientId: c.id });
   }
 
   async function salvar() {
@@ -101,18 +117,23 @@ export function NovoTicket({ clientes }: { clientes: Cliente[] }) {
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Selecao
-              rotulo="Cliente"
-              value={f.clientId}
-              onChange={(e) => setF({ ...f, clientId: e.target.value })}
-            >
-              <option value="">Sem cliente</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.razaoSocial}
-                </option>
-              ))}
-            </Selecao>
+            <div>
+              <Selecao
+                rotulo="Cliente"
+                value={f.clientId}
+                onChange={(e) => setF({ ...f, clientId: e.target.value })}
+              >
+                <option value="">Sem cliente</option>
+                {opcoes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.razaoSocial}
+                  </option>
+                ))}
+              </Selecao>
+              <div className="mt-1 flex justify-end">
+                <ClienteRapido aoCriar={usarNovoCliente} aoAlternar={setCadastrando} />
+              </div>
+            </div>
 
             <Campo
               rotulo="Quem falou"

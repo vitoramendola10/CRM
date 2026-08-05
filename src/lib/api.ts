@@ -49,3 +49,33 @@ export async function chamar<T>(
   }
   return { ok: true, dados: json as T };
 }
+
+/**
+ * Upload. Nao da para passar por `chamar`: o corpo e multipart e o
+ * Content-Type precisa trazer o `boundary`, que so o navegador sabe gerar -
+ * definir o cabecalho na mao aqui quebraria o parse do outro lado.
+ *
+ * O contrato de resposta e o mesmo, entao a UI trata os dois casos igual.
+ */
+export async function enviarArquivo<T>(url: string, form: FormData): Promise<Resultado<T>> {
+  let resp: Response;
+  try {
+    resp = await fetch(url, { method: "POST", body: form });
+  } catch {
+    return { ok: false, erro: "Sem conexao com o servidor." };
+  }
+
+  let json: unknown = null;
+  try {
+    json = await resp.json();
+  } catch {
+    json = null;
+  }
+
+  if (!resp.ok) {
+    const e = json as { erro?: string; campos?: CamposComErro } | null;
+    const erro = e?.erro ?? "Nao consegui enviar o arquivo.";
+    return e?.campos ? { ok: false, erro, campos: e.campos } : { ok: false, erro };
+  }
+  return { ok: true, dados: json as T };
+}

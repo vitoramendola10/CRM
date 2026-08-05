@@ -12,8 +12,11 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:backup": "tsx src/db/backup.ts",
     "worker": "tsx src/workers/outbox.ts",
-    "outbox:once": "tsx src/workers/uma-rodada.ts"
+    "outbox:once": "tsx src/workers/uma-rodada.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",
@@ -34,8 +37,10 @@
     "@types/react-dom": "19.2.4",
     "dotenv": "17.2.3",
     "drizzle-kit": "0.31.10",
+    "jsdom": "^30.0.1",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
   }
 }

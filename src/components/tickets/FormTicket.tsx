@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ClienteRapido, type ClienteCriado } from "@/components/clientes/ClienteRapido";
 import { Botao } from "@/components/ui/Botao";
 import { AreaTexto, Campo, Selecao } from "@/components/ui/Campo";
 import {
@@ -45,10 +46,19 @@ export function FormTicket({
   const [campos, setCampos] = useState<CamposComErro>({});
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  // Mesmo motivo do NovoTicket: o cliente cadastrado no meio do atendimento tem
+  // de entrar no seletor sem recarregar. Aqui nao ha modal por fora, entao o
+  // cadastro rapido nao precisa avisar nada a ninguem.
+  const [opcoes, setOpcoes] = useState<ClienteCriado[]>(clientes);
 
   function set<K extends keyof typeof f>(k: K, v: (typeof f)[K]) {
     setF({ ...f, [k]: v });
     setSalvo(false);
+  }
+
+  function usarNovoCliente(c: ClienteCriado) {
+    setOpcoes([c, ...opcoes]);
+    set("clientId", c.id);
   }
 
   async function salvar(e: React.FormEvent) {
@@ -108,18 +118,23 @@ export function FormTicket({
           ))}
         </Selecao>
 
-        <Selecao
-          rotulo="Cliente"
-          value={f.clientId}
-          onChange={(e) => set("clientId", e.target.value)}
-        >
-          <option value="">Sem cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.razaoSocial}
-            </option>
-          ))}
-        </Selecao>
+        <div>
+          <Selecao
+            rotulo="Cliente"
+            value={f.clientId}
+            onChange={(e) => set("clientId", e.target.value)}
+          >
+            <option value="">Sem cliente</option>
+            {opcoes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.razaoSocial}
+              </option>
+            ))}
+          </Selecao>
+          <div className="mt-1 flex justify-end">
+            <ClienteRapido aoCriar={usarNovoCliente} />
+          </div>
+        </div>
 
         <Selecao
           rotulo="Atendente"

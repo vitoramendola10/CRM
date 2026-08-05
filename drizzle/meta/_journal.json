@@ -22,6 +22,20 @@
       "when": 1785807038033,
       "tag": "0002_nice_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1785887123869,
+      "tag": "0003_clean_red_shift",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1785891072428,
+      "tag": "0004_lovely_machine_man",
+      "breakpoints": true
     }
   ]
 }
